@@ -27,6 +27,10 @@ model User {
   appliedJobs   TuitionJob[] @relation("TutorJobs")
   reviews       Review[]     @relation("ReviewAuthor")
   receivedReviews Review[]   @relation("ReviewTarget")
+  progressUpdates   ProgressUpdate[] @relation("TutorUpdates")
+  receivedUpdates   ProgressUpdate[] @relation("GuardianUpdates")
+  assignedHomeworks  Homework[]       @relation("TutorHomeworks")
+  guardianComments  GuardianComment[]
 }
 
 model Profile {
@@ -84,11 +88,15 @@ model TuitionJob {
   approxLongitude Float?   // Blurred location for public
   locationUnlocked Boolean  @default(false)
   tutorDetailsReleased Boolean @default(false)
+  commissionPaid  Boolean  @default(false) // Whether the 10% commission has been paid by tutor
+  commissionAmount Int?    // Calculated commission amount (salary × 10%)
   tutorRequirement String?  // Specific dept students/public/private varsity requirements
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   payments        Payment[]
+  progressUpdates ProgressUpdate[]
+  homeworks       Homework[]
 }
 
 model Review {
@@ -104,16 +112,20 @@ model Review {
 }
 
 model Payment {
-  id            String   @id @default(cuid())
-  amount        Int
-  status        String   @default("PENDING") // PENDING, SUCCESS, FAILED
-  type          String   // UNLOCK_FEE, SALARY_COMMISSION
-  trxId         String?  @unique
-  jobId         String
-  job           TuitionJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  tutorId       String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                String    @id @default(cuid())
+  amount            Int
+  status            String    @default("PENDING") // PENDING, SUCCESS, FAILED
+  type              String    // UNLOCK_FEE, SALARY_COMMISSION, COMMISSION_FEE
+  trxId             String?   @unique
+  jobId             String
+  job               TuitionJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  tutorId           String?
+  payerRole         String?   // Always "TUTOR" in the commission model
+  refundRequestedAt DateTime? // When the tutor requested a refund
+  refundStatus      String?   // REQUESTED, APPROVED, REJECTED
+  refundReason      String?   // Reason for refund request
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 }
 
 model Blacklist {
@@ -134,3 +146,55 @@ model PasswordReset {
   createdAt DateTime @default(now())
 }
 
+model ProgressUpdate {
+  id             String    @id @default(cuid())
+  jobId          String
+  job            TuitionJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  tutorId        String
+  tutor          User      @relation("TutorUpdates", fields: [tutorId], references: [id], onDelete: Cascade)
+  guardianId     String
+  guardian       User      @relation("GuardianUpdates", fields: [guardianId], references: [id], onDelete: Cascade)
+  type           String    // CLASS_NOTE, HOMEWORK, EXAM, ATTENDANCE, GENERAL
+  title          String
+  description    String
+  sessionDate    DateTime
+  rating         Int?      // 1-5 performance rating
+  attachmentUrls String[]  // URLs of uploaded files
+  seen           Boolean   @default(false)
+  seenAt         DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  comments       GuardianComment[]
+  homeworks      Homework[]
+}
+
+model Homework {
+  id                String    @id @default(cuid())
+  jobId             String
+  job               TuitionJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  tutorId           String
+  tutor             User      @relation("TutorHomeworks", fields: [tutorId], references: [id], onDelete: Cascade)
+  progressUpdateId  String?
+  progressUpdate    ProgressUpdate? @relation(fields: [progressUpdateId], references: [id], onDelete: SetNull)
+  title             String
+  description       String?
+  subject           String
+  assignedDate      DateTime  @default(now())
+  dueDate           DateTime
+  status            String    @default("ASSIGNED") // ASSIGNED, COMPLETED, OVERDUE, CANCELLED
+  completedAt       DateTime?
+  tutorRemarks      String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model GuardianComment {
+  id                String    @id @default(cuid())
+  progressUpdateId  String
+  progressUpdate    ProgressUpdate @relation(fields: [progressUpdateId], references: [id], onDelete: Cascade)
+  guardianId        String
+  guardian          User      @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+  comment           String
+  createdAt         DateTime  @default(now())
+}

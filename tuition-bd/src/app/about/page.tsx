@@ -28,9 +28,9 @@ export default function AboutPage() {
 
       <NavbarWrapper />
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 mt-12 sm:mt-20">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 mt-8 sm:mt-12">
         {/* Page Header */}
-        <div className="text-center space-y-4 mb-16">
+        <div className="text-center space-y-2 mb-8">
 <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-[var(--foreground)] mt-4 flex flex-wrap items-center justify-center gap-1 sm:gap-2">
             About <img src="/logo.png" alt="TutorHire" className="h-24 sm:h-28 lg:h-32 w-auto dark:invert -mb-2 sm:-mb-3 -ml-1 sm:-ml-2" />
           </h1>
@@ -40,7 +40,7 @@ export default function AboutPage() {
         </div>
 
         {/* Interactive neon sliding toggle selector */}
-        <div className="flex justify-center mb-16">
+        <div className="flex justify-center mb-8">
           <div className="relative bg-slate-900/80 border border-slate-800 p-1 rounded-2xl flex max-w-sm w-full shadow-2xl backdrop-blur-xl">
             <button
               onClick={() => setActiveRole("parent")}
@@ -76,8 +76,8 @@ export default function AboutPage() {
         </div>
 
         {/* Dynamic Core Engine Features Section */}
-        <section className="py-12 border-t border-slate-900 relative mb-16">
-          <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
+        <section className="py-6 border-t border-slate-900 relative mb-8">
+          <div className="text-center max-w-3xl mx-auto space-y-4 mb-8">
             <p className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight text-[var(--foreground)] leading-tight">
               {activeRole === "tutor" ? "A better, more secure way to teach & earn" : "A better, more secure way to learn"}
             </p>
@@ -146,7 +146,7 @@ export default function AboutPage() {
                 <p className="text-xs sm:text-sm text-[var(--muted)] leading-relaxed font-sans">
                   {activeRole === "parent"
                     ? "Coordinate weekly tutoring calendars, syllabus schedules, and class time duration preferences directly with active matches inside your unified home dashboard."
-                    : "Experience seamless local integration. Unlock exact parent contact phone directories instantly for free."}
+                    : "Experience seamless local integration. Unlock exact parent contact phone directories securely upon paying a small commission after a match."}
                 </p>
               </div>
             </div>

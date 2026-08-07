@@ -20,7 +20,7 @@ export default function FrontPageAdditions({ selectedRole }: FrontPageAdditionsP
     { value: "BDT 22k+", label: "Top Monthly Salary", description: "Premium rates for elite academic coaches" },
     { value: "4,800+", label: "Active Jobs", description: "New tuition requests posted daily" },
     { value: "100%", label: "Parent Verified", description: "Secure phone & location confirmations" },
-    { value: "Instant", label: "Free Instant Unlock", description: "Unlock parent contact info in one tap" },
+    { value: "Instant", label: "Instant Connection", description: "Unlock parent contact info after match" },
   ];
 
   const steps = selectedRole === "parent" ? [
@@ -62,8 +62,8 @@ export default function FrontPageAdditions({ selectedRole }: FrontPageAdditionsP
     },
     {
       num: "03",
-      title: "Free Instant Match",
-      desc: "Lock in the job, instantly unlock parent verified telephone contact numbers for free, and begin professional classes.",
+      title: "Instant Connection",
+      desc: "Lock in the job, unlock parent verified telephone contact numbers with a small 10% commission, and begin professional classes.",
       textColor: "text-indigo-400",
       glow: "rgba(244,63,94,0.15)"
     }
@@ -80,7 +80,7 @@ export default function FrontPageAdditions({ selectedRole }: FrontPageAdditionsP
     },
     {
       q: "Are there any hidden costs to post a tuition job?",
-      a: "None. Parents can browse tutor portfolios, filter categories, post infinite tuition requirements, and interview candidates completely free of charge. Tutors handle the minor connection checkouts."
+      a: "None. Parents can browse tutor portfolios, filter categories, post infinite tuition requirements, and interview candidates completely free of charge. Tutors handle a small 10% connection fee."
     },
     {
       q: "How do I connect with a matched tutor?",
@@ -93,7 +93,7 @@ export default function FrontPageAdditions({ selectedRole }: FrontPageAdditionsP
     },
     {
       q: "What is the fee to unlock parent contact numbers?",
-      a: "Applying for tuition posts on the live OSM map is free. Once a parent reviews and shortlist-approves your application, a minor BDT connection fee is settled securely to reveal the direct calling hotline."
+      a: "Applying for tuition posts on the live OSM map is completely free. Once a parent reviews and shortlist-approves your application, a minor 10% commission fee (based on the salary) is settled securely to reveal the direct calling hotline."
     },
     {
       q: "How long does verification approval take?",

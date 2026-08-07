@@ -17,8 +17,10 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Invalid credentials or missing role selection");
         }
 
+        const email = credentials.email.trim();
+
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+          where: { email },
         });
 
         if (!user || !user.password) {

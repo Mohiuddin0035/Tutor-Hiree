@@ -23,9 +23,9 @@ export default function GuidelinesPage() {
 
       <NavbarWrapper />
 
-      <div className="relative z-10 max-w-4xl mx-auto px-4 mt-12 sm:mt-20">
+      <div className="relative z-10 max-w-4xl mx-auto px-4 mt-8 sm:mt-12">
         {/* Title */}
-        <div className="text-center space-y-4 mb-16">
+        <div className="text-center space-y-2 mb-8">
 <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-[var(--foreground)] mt-4 flex flex-wrap items-center justify-center gap-1 sm:gap-2">
             <img src="/logo.png" alt="TutorHire" className="h-24 sm:h-28 lg:h-32 w-auto dark:invert -mb-2 sm:-mb-3 -mr-1 sm:-mr-2" /> Policies
           </h1>
@@ -35,7 +35,7 @@ export default function GuidelinesPage() {
         </div>
 
         {/* Guidelines List */}
-        <div className="space-y-6 max-w-2xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
           <div className="glass-panel p-6 rounded-2xl border border-slate-800/80 bg-slate-900/30">
             <h3 className="text-lg font-bold text-[var(--foreground)] mb-2 flex items-center">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-2.5" />
@@ -63,6 +63,16 @@ export default function GuidelinesPage() {
             </h3>
             <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
               Real-time live locations are strictly secured and never shared publicly. Location data is processed dynamically to matching boundaries and is never saved permanently.
+            </p>
+          </div>
+
+          <div className="glass-panel p-6 rounded-2xl border border-slate-800/80 bg-slate-900/30">
+            <h3 className="text-lg font-bold text-[var(--foreground)] mb-2 flex items-center">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-2.5" />
+              4. Refund Policy
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+              Tutors who pay the 10% connection commission fee are eligible for a full refund if the tuition match is unsuccessful or disputed. Refund requests must be submitted through the dashboard within 24 hours of payment. Our administrative team will review and approve valid requests, immediately reverting the connection.
             </p>
           </div>
         </div>

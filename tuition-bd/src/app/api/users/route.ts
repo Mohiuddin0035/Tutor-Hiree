@@ -51,12 +51,13 @@ export async function GET(request: Request) {
 
     const sanitizedTutors = tutors.map((tutor) => ({
       ...tutor,
-      name: "undefined",
-      email: "undefined@tutorhire.com",
+      // Show name and education details for guardians to browse
+      // Phone and address are hidden until commission is paid
       profile: tutor.profile ? {
         ...tutor.profile,
         phone: "•••••••••••",
         address: "•••••••••••",
+        nidImageUrl: null, // Keep NID private
       } : null,
       receivedReviews: tutor.receivedReviews.map((review) => ({
         ...review,

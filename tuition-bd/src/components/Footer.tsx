@@ -13,7 +13,7 @@ export default function Footer() {
 
   return (
     <footer className="w-full bg-slate-950/80 border-t border-slate-900 mt-auto relative z-10 transition-colors duration-300">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10 sm:gap-12">
           {/* Logo / Tagline */}
           <div className="md:col-span-2">
@@ -56,10 +56,10 @@ export default function Footer() {
         </div>
 
         {/* Separator */}
-        <div className="h-px bg-slate-900 my-8 sm:my-10" />
+        <div className="h-px bg-slate-900 my-6 sm:my-8" />
 
         {/* Bengali Disclaimer & Bottom Info */}
-        <div className="space-y-6">
+        <div className="space-y-4">
           <div className="bg-slate-950 p-4 sm:p-5 rounded-2xl border border-slate-900 shadow-inner max-w-4xl">
             <p className="text-xs sm:text-sm text-slate-400 leading-relaxed font-sans">
               <span className="text-emerald-400 font-bold">বি.দ্র.:</span> TutorHire সরাসরি কোনো টিউশন সেবা দেয় না; বরং এটি নিরাপদ প্রযুক্তির মাধ্যমে শিক্ষার্থী ও দক্ষ টিউটরদের যুক্ত করার একটি মাধ্যম মাত্র।

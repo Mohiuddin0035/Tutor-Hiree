@@ -218,7 +218,7 @@ export default function Hero({ onTriggerDemo }: HeroProps) {
               variants={itemVariants}
               className="max-w-2xl mx-auto lg:mx-0 text-base text-[var(--muted)] sm:text-lg md:text-xl font-normal leading-relaxed"
             >
-              বাংলাদেশের প্রথম স্মার্ট ও ম্যাপ-ভিত্তিক <span className="font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-md border-none animate-pulse inline-block mx-1">সম্পূর্ণ ফ্রি</span> টিউশন প্ল্যাটফর্ম — সহজেই খুঁজে নিন আপনার কাছাকাছি ভেরিফাইড টিউটর ও সেরা টিউশন সুযোগ।
+              বাংলাদেশের প্রথম স্মার্ট ও ম্যাপ-ভিত্তিক <span className="font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-md border-none animate-pulse inline-block mx-1">নির্ভরযোগ্য</span> টিউশন প্ল্যাটফর্ম — সহজেই খুঁজে নিন আপনার কাছাকাছি ভেরিফাইড টিউটর ও সেরা টিউশন সুযোগ।
             </motion.p>
 
             {/* CTAs */}

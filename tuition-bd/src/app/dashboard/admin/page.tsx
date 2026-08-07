@@ -1460,20 +1460,20 @@ export default function AdminDashboard() {
                                       TC-{String(job.tutor.profile?.tutorSeq || 1).padStart(3, '0')} - {job.tutor.name}
                                     </span>
                                     <span className="text-slate-400 text-[10px] font-mono block">Phone: {job.tutor.profile?.phone || "N/A"}</span>
-                                    <div className="mt-1.5">
-                                      {job.tutorDetailsReleased ? (
+                                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                      {job.commissionPaid ? (
+                                        <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider">
+                                          ✓ Commission Paid ৳{job.commissionAmount || Math.ceil(job.salary * 0.10)}
+                                        </span>
+                                      ) : (
+                                        <span className="text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider">
+                                          Commission Unpaid
+                                        </span>
+                                      )}
+                                      {job.tutorDetailsReleased && (
                                         <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider">
                                           ✓ Details Released
                                         </span>
-                                      ) : (
-                                        <button
-                                          type="button"
-                                          onClick={() => handleReleaseTutorDetails(job.id)}
-                                          className="bg-indigo-600/25 hover:bg-indigo-600/40 text-indigo-400 border border-indigo-500/30 px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase cursor-pointer transition duration-150"
-                                          title="Release tutor details to parent dashboard"
-                                        >
-                                          Release Details
-                                        </button>
                                       )}
                                     </div>
                                   </div>
@@ -1482,6 +1482,121 @@ export default function AdminDashboard() {
                                 )}
                               </div>
                             </div>
+                            {/* Progress Tracking Stats */}
+                            {job.tutor && (
+                              <div className="bg-indigo-500/5 border border-indigo-500/10 rounded-xl p-3 space-y-1">
+                                <span className="text-[9px] text-indigo-400 font-mono uppercase tracking-wider block font-bold">📊 Progress Tracking</span>
+                                <div className="flex flex-wrap gap-2 items-center">
+                                  <span className={`text-[9px] font-mono px-2 py-0.5 rounded border font-bold ${
+                                    job.progressCount > 0 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-slate-800 text-slate-500 border-slate-700"
+                                  }`}>
+                                    {job.progressCount || 0} Updates
+                                  </span>
+                                  {job.lastProgressUpdate && (
+                                    <>
+                                      <span className="text-[9px] font-mono text-slate-500">
+                                        Last: {new Date(job.lastProgressUpdate.createdAt).toLocaleDateString()}
+                                      </span>
+                                      <span className={`text-[8px] font-mono px-1.5 py-0.5 rounded-full font-bold uppercase ${
+                                        job.lastProgressUpdate.seen ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400"
+                                      }`}>
+                                        {job.lastProgressUpdate.seen ? "Guardian Viewed" : "Unseen"}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Commission & Refund Management */}
+                            {job.tutor && (
+                              <div className="bg-black/20 border border-slate-900 rounded-xl p-3 space-y-2">
+                                <span className="text-[9px] text-slate-500 font-mono uppercase tracking-wider block font-bold">Commission Management</span>
+                                <div className="flex flex-wrap gap-2 items-center">
+                                  {!job.commissionPaid && (
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        const res = await fetch("/api/admin/jobs", {
+                                          method: "PATCH",
+                                          headers: { "Content-Type": "application/json" },
+                                          body: JSON.stringify({ jobId: job.id, action: "verify-payment" })
+                                        });
+                                        if (res.ok) { fetchJobsList(); alert("Payment verified and details unlocked."); }
+                                        else alert("Failed to verify payment.");
+                                      }}
+                                      className="bg-emerald-600/25 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-lg text-[9px] font-mono font-bold uppercase cursor-pointer transition duration-150"
+                                    >
+                                      Verify Payment & Unlock
+                                    </button>
+                                  )}
+                                  {!job.tutorDetailsReleased && !job.commissionPaid && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleReleaseTutorDetails(job.id)}
+                                      className="bg-indigo-600/25 hover:bg-indigo-600/40 text-indigo-400 border border-indigo-500/30 px-2.5 py-1 rounded-lg text-[9px] font-mono font-bold uppercase cursor-pointer transition duration-150"
+                                      title="Release tutor details to parent dashboard"
+                                    >
+                                      Release Details
+                                    </button>
+                                  )}
+                                  
+                                  {/* Refund Request Handling */}
+                                  {job.payments && job.payments.map((payment: any) => (
+                                    payment.refundStatus === "REQUESTED" && (
+                                      <div key={payment.id} className="flex gap-2 items-center bg-red-500/10 p-2 rounded-lg border border-red-500/20 w-full mt-2">
+                                        <div className="flex-1">
+                                          <span className="text-[10px] text-red-400 font-bold block">Refund Requested</span>
+                                          <span className="text-[9px] text-slate-400 block italic">Reason: {payment.refundReason}</span>
+                                        </div>
+                                        <div className="flex gap-2 shrink-0">
+                                          <button
+                                            type="button"
+                                            onClick={async () => {
+                                              const res = await fetch("/api/admin/jobs", {
+                                                method: "PATCH",
+                                                headers: { "Content-Type": "application/json" },
+                                                body: JSON.stringify({ jobId: job.id, paymentId: payment.id, action: "approve-refund" })
+                                              });
+                                              if (res.ok) { fetchJobsList(); alert("Refund approved."); }
+                                              else alert("Failed to approve refund.");
+                                            }}
+                                            className="bg-red-600/25 hover:bg-red-600/40 text-red-400 border border-red-500/30 px-2 py-1 rounded-lg text-[9px] font-mono font-bold uppercase cursor-pointer transition"
+                                          >
+                                            Approve
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={async () => {
+                                              const res = await fetch("/api/admin/jobs", {
+                                                method: "PATCH",
+                                                headers: { "Content-Type": "application/json" },
+                                                body: JSON.stringify({ jobId: job.id, paymentId: payment.id, action: "reject-refund" })
+                                              });
+                                              if (res.ok) { fetchJobsList(); alert("Refund rejected."); }
+                                              else alert("Failed to reject refund.");
+                                            }}
+                                            className="bg-slate-700 hover:bg-slate-600 text-slate-300 border border-slate-600 px-2 py-1 rounded-lg text-[9px] font-mono font-bold uppercase cursor-pointer transition"
+                                          >
+                                            Reject
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )
+                                  ))}
+                                  {job.payments && job.payments.some((p: any) => p.refundStatus === "APPROVED") && (
+                                    <span className="text-[9px] bg-red-500/10 text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider">
+                                      Refund Approved
+                                    </span>
+                                  )}
+                                  {job.payments && job.payments.some((p: any) => p.refundStatus === "REJECTED") && (
+                                    <span className="text-[9px] bg-slate-800 text-slate-400 border border-slate-700 px-1.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider">
+                                      Refund Rejected
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
                           </div>
 
                           {isPendingManual && job.tutorId && (

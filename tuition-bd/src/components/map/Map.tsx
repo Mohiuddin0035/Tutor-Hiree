@@ -603,7 +603,7 @@ export default function MapComponent({
                   </svg>
                 </button>
               </div>
-              <h3 className="text-sm font-bold font-heading text-white">Tutor Profile Details</h3>
+              <h3 className="text-sm font-bold font-heading text-white">{selectedItem.name || 'Tutor Profile'}</h3>
               <div className="h-px bg-slate-800" />
               <div className="space-y-4 text-xs">
                 <div className="flex flex-col gap-1 bg-slate-900/50 border border-slate-850 p-3 rounded-xl">
@@ -631,8 +631,16 @@ export default function MapComponent({
                   </span>
                 </div>
               </div>
+              {selectedItem.bio && (
+                <div className="flex flex-col gap-1 bg-slate-900/50 border border-slate-850 p-3 rounded-xl">
+                  <span className="text-slate-500 text-[10px] uppercase font-mono tracking-wider">Bio</span>
+                  <span className="text-slate-300 font-sans text-xs italic">
+                    &quot;{selectedItem.bio}&quot;
+                  </span>
+                </div>
+              )}
               <div className="bg-amber-500/10 border border-amber-500/25 p-3 rounded-xl text-amber-400 font-mono text-[11px] leading-relaxed text-center font-semibold">
-                To get full details, please call us at 096-96-847-847.
+                📞 Phone hidden. Request this tutor and pay 10% commission fee to unlock full contact details.
               </div>
               {userRole === "PARENT" && (
                 <div className="pt-2 border-t border-slate-800 space-y-3">
@@ -749,7 +757,7 @@ export default function MapComponent({
                     disabled={applyingJobId === selectedItem.id}
                     className="bg-emerald-500 text-slate-950 px-3 py-2.5 rounded-xl text-xs font-bold w-full hover:bg-emerald-600 transition duration-200 cursor-pointer border-none flex items-center justify-center gap-1.5"
                   >
-                    {applyingJobId === selectedItem.id ? "Applying..." : "Apply for Tuition (Free)"}
+                    {applyingJobId === selectedItem.id ? "Applying..." : `Apply for Tuition (৳${Math.ceil(selectedItem.salary * 0.10)} commission)`}
                   </button>
                 ) : !session ? (
                   <Link href="/login" className="block w-full">
@@ -805,6 +813,7 @@ export default function MapComponent({
                   </svg>
                 </button>
               </div>
+              <h3 className="text-xs font-bold font-heading text-white">{selectedItem.name || 'Tutor Profile'}</h3>
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div className="flex flex-col gap-0.5 bg-slate-900/50 border border-slate-850 p-2.5 rounded-xl">
                   <span className="text-slate-500 text-[9px] uppercase font-mono tracking-wider">University</span>
@@ -824,7 +833,7 @@ export default function MapComponent({
                 </div>
               </div>
               <div className="bg-amber-500/10 border border-amber-500/25 p-2.5 rounded-xl text-amber-400 font-mono text-[10px] leading-relaxed text-center font-semibold mb-1">
-                To get full details, please call us at 096-96-847-847.
+                📞 Phone hidden. Request and pay 10% fee to unlock.
               </div>
               {userRole === "PARENT" && (
                 <div className="pt-2 border-t border-slate-800 space-y-2">
@@ -940,7 +949,7 @@ export default function MapComponent({
                     disabled={applyingJobId === selectedItem.id}
                     className="bg-emerald-500 text-slate-950 px-3 py-1.5 rounded-xl text-xs font-bold w-full hover:bg-emerald-600 transition duration-200 cursor-pointer border-none flex items-center justify-center"
                   >
-                    {applyingJobId === selectedItem.id ? "Applying..." : "Apply (Free)"}
+                    {applyingJobId === selectedItem.id ? "Applying..." : `Apply (৳${Math.ceil(selectedItem.salary * 0.10)} fee)`}
                   </button>
                 ) : !session ? (
                   <Link href="/login" className="block w-full">
