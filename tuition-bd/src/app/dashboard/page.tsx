@@ -8,6 +8,7 @@ import NavbarWrapper from "@/components/NavbarWrapper";
 import { detectFaceInImage } from "@/lib/faceDetection";
 import { motion, AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
+import ProgressTracker from "@/components/ProgressTracker";
 
 const MapPicker = dynamic(() => import("@/components/map/MapPicker"), {
   ssr: false,
@@ -107,6 +108,12 @@ export default function Dashboard() {
   const [requestModalJob, setRequestModalJob] = useState<any>(null);
   const [helplineModalJob, setHelplineModalJob] = useState<any>(null);
   const [isAccepting, setIsAccepting] = useState(false);
+
+  // Commission payment states
+  const [commissionTrxId, setCommissionTrxId] = useState("");
+  const [payingCommissionJobId, setPayingCommissionJobId] = useState<string | null>(null);
+  const [requestingRefundJobId, setRequestingRefundJobId] = useState<string | null>(null);
+  const [refundReason, setRefundReason] = useState("");
 
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileMessage, setProfileMessage] = useState("");
@@ -299,7 +306,7 @@ export default function Dashboard() {
       if (res.ok) {
         setRequestModalJob(null);
         setPopupType("success");
-        setPopupMessage("✓ Request accepted and parent contact details unlocked successfully!");
+        setPopupMessage("✓ Request accepted! Please pay the 10% commission fee from your dashboard to unlock parent contact details.");
         setPopupOpen(true);
         loadDashboardData();
       } else {
@@ -314,6 +321,78 @@ export default function Dashboard() {
       setPopupOpen(true);
     } finally {
       setIsAccepting(false);
+    }
+  };
+
+  const handlePayCommission = async (jobId: string) => {
+    if (!commissionTrxId.trim()) {
+      setPopupType("error");
+      setPopupMessage("Please enter your bKash/Nagad Transaction ID (TrxID).");
+      setPopupOpen(true);
+      return;
+    }
+    setPayingCommissionJobId(jobId);
+    try {
+      const res = await fetch("/api/jobs", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobId,
+          action: "pay-commission",
+          trxId: commissionTrxId.trim(),
+        })
+      });
+      if (res.ok) {
+        setCommissionTrxId("");
+        setPopupType("success");
+        setPopupMessage("✓ Commission paid successfully! Full parent contact details have been unlocked.");
+        setPopupOpen(true);
+        loadDashboardData();
+      } else {
+        const txt = await res.text();
+        setPopupType("error");
+        setPopupMessage(txt || "Failed to process commission payment.");
+        setPopupOpen(true);
+      }
+    } catch (e) {
+      setPopupType("error");
+      setPopupMessage("Network error processing payment.");
+      setPopupOpen(true);
+    } finally {
+      setPayingCommissionJobId(null);
+    }
+  };
+
+  const handleRequestRefund = async (jobId: string) => {
+    setRequestingRefundJobId(jobId);
+    try {
+      const res = await fetch("/api/jobs", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobId,
+          action: "request-refund",
+          reason: refundReason || "Requesting refund",
+        })
+      });
+      if (res.ok) {
+        setRefundReason("");
+        setPopupType("success");
+        setPopupMessage("✓ Refund request submitted! Admin will review within 24 hours.");
+        setPopupOpen(true);
+        loadDashboardData();
+      } else {
+        const txt = await res.text();
+        setPopupType("error");
+        setPopupMessage(txt || "Failed to request refund.");
+        setPopupOpen(true);
+      }
+    } catch (e) {
+      setPopupType("error");
+      setPopupMessage("Network error requesting refund.");
+      setPopupOpen(true);
+    } finally {
+      setRequestingRefundJobId(null);
     }
   };
 
@@ -713,14 +792,16 @@ export default function Dashboard() {
               {role === "TUTOR" ? (
                 // TUTOR INTERFACE
                 <>
-                  <div>
-                    <h2 className="text-xl font-bold font-heading text-white">Operator Verification</h2>
-                    <p className="text-xs text-slate-500 mt-1 font-mono uppercase tracking-wider">Acquire verified credentials badge</p>
-                  </div>
-                  <div className="h-px bg-slate-800/80" />
-                  <p className="text-sm text-slate-400 leading-relaxed font-sans">
-                    Submit your NID, passport scan, or student ID credentials. Verified tutors receive a badge on search popups and enjoy much higher matching priority.
-                  </p>
+                  {verificationStatus !== "VERIFIED" ? (
+                    <>
+                      <div>
+                        <h2 className="text-xl font-bold font-heading text-white">Operator Verification</h2>
+                        <p className="text-xs text-slate-500 mt-1 font-mono uppercase tracking-wider">Acquire verified credentials badge</p>
+                      </div>
+                      <div className="h-px bg-slate-800/80" />
+                      <p className="text-sm text-slate-400 leading-relaxed font-sans">
+                        Submit your NID, passport scan, or student ID credentials. Verified tutors receive a badge on search popups and enjoy much higher matching priority.
+                      </p>
 
                   <form
                       onSubmit={async (e) => {
@@ -1037,6 +1118,27 @@ export default function Dashboard() {
                       )}
                     </button>
                   </form>
+                  </>
+                  ) : (
+                    <>
+                      <div>
+                        <h2 className="text-xl font-bold font-heading text-white">Operator Verification</h2>
+                        <p className="text-xs text-slate-500 mt-1 font-mono uppercase tracking-wider">Acquire verified credentials badge</p>
+                      </div>
+                      <div className="h-px bg-slate-800/80" />
+                      <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-2xl p-6 text-center space-y-3">
+                        <div className="w-12 h-12 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        <p className="text-sm text-emerald-400 font-bold tracking-wide">You are fully verified!</p>
+                        <p className="text-xs text-slate-400 font-sans">
+                          Your credentials have been approved. You now have the verified badge and higher matching priority.
+                        </p>
+                      </div>
+                    </>
+                  )}
 
                   {/* DIRECT TUITION REQUESTS SECTION */}
                   {(() => {
@@ -1135,11 +1237,11 @@ export default function Dashboard() {
                                 Job Assignment
                               </span>
                               <span className={`text-[9px] font-mono px-2 py-0.5 rounded-md uppercase font-extrabold tracking-wider border ${
-                                job.locationUnlocked
+                                job.commissionPaid
                                   ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                                   : "bg-amber-500/10 text-amber-400 border-amber-500/20"
                               }`}>
-                                {job.locationUnlocked ? "Active Match" : "Pending Parent Approval"}
+                                {job.commissionPaid ? "Active Match" : "Commission Pending"}
                               </span>
                             </div>
 
@@ -1159,33 +1261,100 @@ export default function Dashboard() {
                                 <span className="text-white font-bold">{job.salary} BDT</span>
                               </div>
                               <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-850 text-left">
-                                <span className="text-slate-500 block text-[8px] uppercase font-bold">Class</span>
-                                <span className="text-white font-bold">{job.classLevel}</span>
+                                <span className="text-slate-500 block text-[8px] uppercase font-bold">Commission (10%)</span>
+                                <span className="text-amber-400 font-bold">৳{job.commissionAmount || Math.ceil(job.salary * 0.10)}</span>
                               </div>
                             </div>
 
                             <div className="space-y-1 pt-1.5 border-t border-slate-900">
                               <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider block font-bold text-left">Parent Contact & Details</span>
-                              {job.locationUnlocked ? (
-                                <div className="bg-slate-900/40 p-2.5 rounded-xl text-xs space-y-1 text-slate-300 font-sans text-left">
-                                  <p><span className="text-slate-500 font-mono text-[10px]">Name:</span> {job.parent.name}</p>
-                                  <p><span className="text-slate-500 font-mono text-[10px]">Phone:</span> {job.parent.phone || "Not specified"}</p>
-                                  <p><span className="text-slate-500 font-mono text-[10px]">Email:</span> {job.parent.email}</p>
-                                  <p className="text-[9px] text-emerald-400 font-mono mt-1 flex items-center gap-1">
-                                    <svg className="w-3 h-3 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                                    </svg>
-                                    Exact coordinates unlocked on map!
-                                  </p>
+                              {job.commissionPaid ? (
+                                <div className="space-y-2">
+                                  <div className="bg-slate-900/40 p-2.5 rounded-xl text-xs space-y-1 text-slate-300 font-sans text-left">
+                                    <p><span className="text-slate-500 font-mono text-[10px]">Name:</span> {job.parent.name}</p>
+                                    <p><span className="text-slate-500 font-mono text-[10px]">Phone:</span> {job.parent.phone || "Not specified"}</p>
+                                    <p><span className="text-slate-500 font-mono text-[10px]">Email:</span> {job.parent.email}</p>
+                                    <p className="text-[9px] text-emerald-400 font-mono mt-1 flex items-center gap-1">
+                                      <svg className="w-3 h-3 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                      </svg>
+                                      Commission paid — Full details unlocked!
+                                    </p>
+                                  </div>
+                                  {/* Refund request section — only within 24hrs */}
+                                  {job.payment && !job.payment.refundStatus && (() => {
+                                    const paymentTime = new Date(job.payment.createdAt).getTime();
+                                    const hoursElapsed = (Date.now() - paymentTime) / (1000 * 60 * 60);
+                                    return hoursElapsed <= 24;
+                                  })() && (
+                                    <div className="bg-red-500/5 border border-red-500/10 p-2.5 rounded-xl space-y-2">
+                                      <span className="text-[9px] font-mono text-red-400 uppercase tracking-wider block font-bold">Request Refund (within 24hrs)</span>
+                                      <input
+                                        type="text"
+                                        value={refundReason}
+                                        onChange={(e) => setRefundReason(e.target.value)}
+                                        placeholder="Reason for refund..."
+                                        className="w-full bg-slate-950 border border-slate-800 text-slate-100 rounded-lg px-2.5 py-1.5 text-[11px] focus:outline-none focus:border-red-500"
+                                      />
+                                      <button
+                                        onClick={() => handleRequestRefund(job.id)}
+                                        disabled={requestingRefundJobId === job.id}
+                                        className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 py-1.5 rounded-lg text-[10px] font-mono font-bold cursor-pointer transition disabled:opacity-50"
+                                      >
+                                        {requestingRefundJobId === job.id ? "Submitting..." : "Request Full Refund"}
+                                      </button>
+                                    </div>
+                                  )}
+                                  {job.payment?.refundStatus === "REQUESTED" && (
+                                    <div className="bg-yellow-500/5 border border-yellow-500/10 p-2 rounded-xl text-[10px] font-mono text-yellow-400 text-center">
+                                      ⏳ Refund request pending admin review
+                                    </div>
+                                  )}
+                                  {job.payment?.refundStatus === "APPROVED" && (
+                                    <div className="bg-emerald-500/5 border border-emerald-500/10 p-2 rounded-xl text-[10px] font-mono text-emerald-400 text-center">
+                                      ✓ Refund approved
+                                    </div>
+                                  )}
+                                  {job.payment?.refundStatus === "REJECTED" && (
+                                    <div className="bg-red-500/5 border border-red-500/10 p-2 rounded-xl text-[10px] font-mono text-red-400 text-center">
+                                      ✗ Refund request rejected
+                                    </div>
+                                  )}
                                 </div>
                               ) : (
                                 <div className="space-y-2">
                                   <div className="bg-amber-500/5 border border-amber-500/10 p-2.5 rounded-xl text-[10px] font-mono text-amber-500 leading-normal text-left">
-                                    Your application has been received! Contact information and exact location will unlock immediately once the parent accepts your request.
+                                    Pay the 10% commission fee (৳{job.commissionAmount || Math.ceil(job.salary * 0.10)}) via bKash/Nagad to unlock parent contact details and exact location.
+                                  </div>
+                                  <div className="space-y-2">
+                                    <input
+                                      type="text"
+                                      value={commissionTrxId}
+                                      onChange={(e) => setCommissionTrxId(e.target.value)}
+                                      placeholder="Enter bKash/Nagad TrxID..."
+                                      className="w-full bg-slate-950 border border-slate-800 text-slate-100 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
+                                    />
+                                    <button
+                                      onClick={() => handlePayCommission(job.id)}
+                                      disabled={payingCommissionJobId === job.id}
+                                      className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-2 px-4 rounded-xl text-xs transition duration-200 cursor-pointer border-none flex items-center justify-center disabled:opacity-50"
+                                    >
+                                      {payingCommissionJobId === job.id ? "Processing..." : `Pay ৳${job.commissionAmount || Math.ceil(job.salary * 0.10)} Commission`}
+                                    </button>
                                   </div>
                                 </div>
                               )}
                             </div>
+
+                            {/* Student Progress Tracker */}
+                            {job.status === "ASSIGNED" && job.commissionPaid && (
+                              <div className="border-t border-slate-800/60 pt-3 mt-2">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider font-bold">📊 Student Progress</span>
+                                </div>
+                                <ProgressTracker role="TUTOR" jobId={job.id} jobTitle={job.title} jobSubject={job.subject} />
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -1465,13 +1634,17 @@ export default function Dashboard() {
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {assignedTutors.map((t: any) => (
-                          <div key={t.id} className="bg-slate-950/60 border border-slate-850 p-4.5 rounded-2xl space-y-3 relative overflow-hidden group hover:border-emerald-500/30 transition-all duration-300">
+                          <div key={t.id + '-' + (t.jobId || '')} className="bg-slate-950/60 border border-slate-850 p-4.5 rounded-2xl space-y-3 relative overflow-hidden group hover:border-emerald-500/30 transition-all duration-300">
                             <div className="flex items-center justify-between">
                               <span className="text-[10px] font-mono px-2 py-0.5 rounded border bg-emerald-500/10 text-emerald-400 border-emerald-500/20 font-extrabold">
                                 TC-{String(t.tutorSeq).padStart(3, '0')}
                               </span>
-                              <span className="text-[9px] font-mono text-emerald-400 bg-emerald-500/5 border border-emerald-500/10 px-2 py-0.5 rounded-md uppercase font-extrabold tracking-wider">
-                                Assigned
+                              <span className={`text-[9px] font-mono px-2 py-0.5 rounded-md uppercase font-extrabold tracking-wider border ${
+                                t.commissionPaid
+                                  ? "bg-emerald-500/5 text-emerald-400 border-emerald-500/10"
+                                  : "bg-amber-500/5 text-amber-400 border-amber-500/10"
+                              }`}>
+                                {t.commissionPaid ? "Full Details Unlocked" : "Pending Commission"}
                               </span>
                             </div>
 
@@ -1480,6 +1653,15 @@ export default function Dashboard() {
                               <span className="text-xs text-slate-200 font-bold block">{t.jobTitle}</span>
                             </div>
 
+                            {/* Always visible: Name */}
+                            <div className="space-y-1 pt-1.5 border-t border-slate-900">
+                              <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider block font-bold">Tutor Name</span>
+                              <p className="text-xs text-white leading-relaxed font-sans font-semibold">
+                                {t.name}
+                              </p>
+                            </div>
+
+                            {/* Always visible: Education */}
                             <div className="space-y-1 pt-1.5 border-t border-slate-900">
                               <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider block font-bold">University / Education</span>
                               <p className="text-xs text-emerald-300 leading-relaxed font-sans font-semibold">
@@ -1497,9 +1679,40 @@ export default function Dashboard() {
                             <div className="space-y-1 pt-1.5 border-t border-slate-900">
                               <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider block font-bold">Tutor Bio</span>
                               <p className="text-xs text-slate-300 leading-relaxed font-sans italic">
-                                "{t.bio}"
+                                &quot;{t.bio}&quot;
                               </p>
                             </div>
+
+                            {/* Contact details — only after commission */}
+                            {t.commissionPaid ? (
+                              <div className="space-y-1 pt-1.5 border-t border-slate-900">
+                                <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider block font-bold">Contact Details</span>
+                                <div className="bg-slate-900/40 p-2.5 rounded-xl text-xs space-y-1 text-slate-300 font-sans text-left">
+                                  <p><span className="text-slate-500 font-mono text-[10px]">Phone:</span> {t.phone}</p>
+                                  <p><span className="text-slate-500 font-mono text-[10px]">Email:</span> {t.email}</p>
+                                  <p className="text-[9px] text-emerald-400 font-mono mt-1 flex items-center gap-1">
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                    </svg>
+                                    Commission paid — Full contact unlocked
+                                  </p>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="bg-amber-500/5 border border-amber-500/10 p-2.5 rounded-xl text-[10px] font-mono text-amber-500 leading-normal text-center">
+                                📞 Phone & email will be visible once the tutor pays the ৳{t.commissionAmount || '—'} platform commission fee.
+                              </div>
+                            )}
+
+                            {/* Student Progress Tracker for Parent */}
+                            {t.commissionPaid && t.jobId && (
+                              <div className="border-t border-slate-800/60 pt-3 mt-2">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider font-bold">📊 Student Progress</span>
+                                </div>
+                                <ProgressTracker role="PARENT" jobId={t.jobId} jobTitle={t.jobTitle} jobSubject={t.subject} />
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -1727,7 +1940,7 @@ export default function Dashboard() {
             <div className="space-y-2">
               <h3 className="text-lg font-extrabold font-heading text-white">Accept Tuition Request</h3>
               <p className="text-slate-300 text-xs sm:text-sm leading-relaxed font-sans px-2">
-                Accept assignment for Tuition Code <strong className="text-emerald-400 font-mono">TCT-{String(requestModalJob.jobSeq).padStart(3, '0')}</strong> to instantly unlock parent details.
+                Accept assignment for Tuition Code <strong className="text-emerald-400 font-mono">TCT-{String(requestModalJob.jobSeq).padStart(3, '0')}</strong>. After accepting, you will need to pay a <strong className="text-amber-400">10% commission fee (৳{requestModalJob.commissionAmount || Math.ceil(requestModalJob.salary * 0.10)})</strong> to unlock the parent&apos;s full contact details.
               </p>
             </div>
 

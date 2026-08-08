@@ -69,25 +69,30 @@ export async function GET(request: Request) {
         salary: job.salary,
         status: job.status,
         locationUnlocked: job.locationUnlocked,
+        commissionPaid: job.commissionPaid,
+        commissionAmount: job.commissionAmount || Math.ceil(job.salary * 0.10),
         studentGender: job.parent.profile?.gender || "Not Specified",
         duration: job.parent.profile?.hoursRequired || "Not Specified",
         preferableTime: job.parent.profile?.preferable_time || "Flexible",
-        parent: job.locationUnlocked ? {
+        parent: job.commissionPaid ? {
           name: job.parent.name,
           email: job.parent.email,
           phone: job.parent.profile?.phone || "Not specified",
           latitude: job.latitude,
           longitude: job.longitude,
         } : {
-          name: "Unlocked Pending Match Payment",
+          name: "Pay Commission to Unlock",
           email: "hidden@tuition-console.net",
           phone: "hidden",
         },
         payment: job.payments[0] ? {
+          id: job.payments[0].id,
           amount: job.payments[0].amount,
           status: job.payments[0].status,
           trxId: job.payments[0].trxId,
           createdAt: job.payments[0].createdAt,
+          refundStatus: (job.payments[0] as any).refundStatus || null,
+          refundRequestedAt: (job.payments[0] as any).refundRequestedAt || null,
         } : null,
       }));
 
@@ -173,19 +178,25 @@ export async function GET(request: Request) {
       const assignedTutorsMap = new Map();
       assignedJobs.forEach((job) => {
         if (job.tutor) {
-          const released = job.tutorDetailsReleased === true;
-          assignedTutorsMap.set(job.tutor.id, {
+          const commissionPaid = job.commissionPaid === true;
+          assignedTutorsMap.set(job.tutor.id + '-' + job.id, {
             id: job.tutor.id,
-            name: released ? job.tutor.name : "Tutor [Masked]",
-            email: released ? job.tutor.email : "Email [Masked]",
-            phone: released ? (job.tutor.profile?.phone || "Not specified") : "Phone [Masked]",
-            tutorSeq: job.tutor.profile?.tutorSeq || 1,
+            jobId: job.id,
+            // Always show name and education for guardians
+            name: job.tutor.name || "Tutor",
             education: job.tutor.profile?.education || "Not specified",
             bio: job.tutor.profile?.bio || "No bio available",
+            tutorSeq: job.tutor.profile?.tutorSeq || 1,
             subject: job.subject || "Various Subjects",
             jobTitle: job.title,
-            selfieImageUrl: released ? job.tutor.profile?.selfieImageUrl : null,
-            universityIdImageUrl: released ? job.tutor.profile?.universityIdImageUrl : null,
+            commissionPaid,
+            commissionAmount: job.commissionAmount || Math.ceil(job.salary * 0.10),
+            salary: job.salary,
+            // Only show contact details after commission is paid
+            email: commissionPaid ? job.tutor.email : "Pay commission to unlock",
+            phone: commissionPaid ? (job.tutor.profile?.phone || "Not specified") : "Pay commission to unlock",
+            selfieImageUrl: commissionPaid ? job.tutor.profile?.selfieImageUrl : null,
+            universityIdImageUrl: commissionPaid ? job.tutor.profile?.universityIdImageUrl : null,
           });
         }
       });

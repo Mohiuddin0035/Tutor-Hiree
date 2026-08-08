@@ -23,9 +23,9 @@ export default function ContactPage() {
 
       <NavbarWrapper />
 
-      <div className="relative z-10 max-w-4xl mx-auto px-4 mt-12 sm:mt-20">
+      <div className="relative z-10 max-w-4xl mx-auto px-4 mt-8 sm:mt-12">
         {/* Title */}
-        <div className="text-center space-y-4 mb-16">
+        <div className="text-center space-y-2 mb-8">
 <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-[var(--foreground)] mt-4 flex flex-wrap items-center justify-center gap-1 sm:gap-2">
             Contact <img src="/logo.png" alt="TutorHire" className="h-24 sm:h-28 lg:h-32 w-auto dark:invert -mb-2 sm:-mb-3 -ml-1 sm:-ml-2" />
           </h1>

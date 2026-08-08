@@ -38,14 +38,65 @@ export async function GET(request: Request) {
               }
             }
           }
+        },
+        payments: {
+          select: {
+            id: true,
+            amount: true,
+            status: true,
+            type: true,
+            trxId: true,
+            tutorId: true,
+            payerRole: true,
+            refundRequestedAt: true,
+            refundStatus: true,
+            refundReason: true,
+            createdAt: true,
+          },
+          orderBy: {
+            createdAt: "desc"
+          }
         }
       },
       orderBy: {
         createdAt: "desc"
-      }
+      },
     });
 
-    return NextResponse.json(jobs);
+    // Compute progress counts per job
+    const jobIds = jobs.map((j: any) => j.id);
+    
+    const progressCounts = await prisma.progressUpdate.groupBy({
+      by: ["jobId"],
+      where: { jobId: { in: jobIds } },
+      _count: { id: true },
+    });
+    
+    const countMap: Record<string, number> = {};
+    for (const pc of progressCounts) {
+      countMap[pc.jobId] = pc._count.id;
+    }
+
+    // Attach latest update info per job
+    const latestUpdates = await prisma.progressUpdate.findMany({
+      where: { jobId: { in: jobIds } },
+      orderBy: { createdAt: "desc" },
+      distinct: ["jobId"],
+      select: { jobId: true, createdAt: true, seen: true, type: true },
+    });
+
+    const latestMap: Record<string, any> = {};
+    for (const u of latestUpdates) {
+      latestMap[u.jobId] = u;
+    }
+
+    const enriched = jobs.map((j: any) => ({
+      ...j,
+      progressCount: countMap[j.id] || 0,
+      lastProgressUpdate: latestMap[j.id] || null,
+    }));
+
+    return NextResponse.json(enriched);
   } catch (error) {
     console.error("ADMIN_GET_JOBS_ERROR", error);
     return new NextResponse("Internal Error", { status: 500 });
@@ -117,6 +168,64 @@ export async function PATCH(request: Request) {
       });
 
       return NextResponse.json({ updatedJob, message: "Tutor requirement updated successfully." });
+    }
+
+    if (action === "approve-refund") {
+      const { paymentId } = body;
+      if (!paymentId) {
+        return new NextResponse("Missing paymentId", { status: 400 });
+      }
+
+      // Update payment refund status
+      const payment = await prisma.payment.update({
+        where: { id: paymentId },
+        data: {
+          refundStatus: "APPROVED",
+          status: "FAILED", // Mark original payment as failed/refunded
+        }
+      });
+
+      // Revert the unlock on the job
+      await prisma.tuitionJob.update({
+        where: { id: jobId },
+        data: {
+          commissionPaid: false,
+          locationUnlocked: false,
+          tutorDetailsReleased: false,
+        }
+      });
+
+      return NextResponse.json({ payment, message: "Refund approved. Details re-locked." });
+    }
+
+    if (action === "reject-refund") {
+      const { paymentId } = body;
+      if (!paymentId) {
+        return new NextResponse("Missing paymentId", { status: 400 });
+      }
+
+      const payment = await prisma.payment.update({
+        where: { id: paymentId },
+        data: {
+          refundStatus: "REJECTED",
+        }
+      });
+
+      return NextResponse.json({ payment, message: "Refund request rejected." });
+    }
+
+    if (action === "verify-payment") {
+      // Admin manually verifies a payment and unlocks details
+      const updatedJob = await prisma.tuitionJob.update({
+        where: { id: jobId },
+        data: {
+          commissionPaid: true,
+          locationUnlocked: true,
+          tutorDetailsReleased: true,
+        }
+      });
+
+      return NextResponse.json({ updatedJob, message: "Payment verified and details unlocked." });
     }
 
     return new NextResponse("Invalid action", { status: 400 });

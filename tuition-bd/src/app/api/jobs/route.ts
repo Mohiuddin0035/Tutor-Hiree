@@ -243,11 +243,17 @@ export async function PATCH(request: Request) {
         return new NextResponse("Gender Mismatch: This tuition post requires a female tutor.", { status: 400 });
       }
 
+      // Calculate commission amount (10% of salary)
+      const commissionAmount = Math.ceil(job.salary * 0.10);
+
       const updatedJob = await prisma.tuitionJob.update({
         where: { id: jobId },
         data: {
           tutorId: userId,
-          status: "ASSIGNED", // Assign status on application directly
+          status: "ASSIGNED",
+          locationUnlocked: false, // Locked until commission is paid
+          commissionPaid: false,
+          commissionAmount,
         }
       });
       return NextResponse.json(updatedJob);
@@ -287,12 +293,16 @@ export async function PATCH(request: Request) {
         return new NextResponse("Tutor not found", { status: 404 });
       }
 
+      // Calculate commission amount
+      const commissionAmount = Math.ceil(job.salary * 0.10);
+
       // Update the job with tutorId and status = "REQUESTED"
       const updatedJob = await prisma.tuitionJob.update({
         where: { id: jobId },
         data: {
           tutorId,
-          status: "REQUESTED"
+          status: "REQUESTED",
+          commissionAmount,
         }
       });
 
@@ -323,7 +333,8 @@ export async function PATCH(request: Request) {
                   <h3 style="color: #10b981; margin-top: 15px;">Tuition Code: TCT-${String(job.jobSeq).padStart(3, '0')}</h3>
                   <p style="font-size: 13px; color: #cbd5e1; line-height: 1.5; margin-top: 10px;">Subject: <strong>${job.subject}</strong></p>
                   <p style="font-size: 13px; color: #cbd5e1; line-height: 1.5;">Class: <strong>${job.classLevel}</strong></p>
-                  <p style="font-size: 13px; color: #94a3b8; line-height: 1.5; margin-top: 15px;">Please log in to your Tutor Dashboard to accept the request.</p>
+                  <p style="font-size: 13px; color: #eab308; line-height: 1.5; margin-top: 15px;">Commission Fee: <strong>৳${commissionAmount}</strong> (10% of ৳${job.salary}/month salary)</p>
+                  <p style="font-size: 13px; color: #94a3b8; line-height: 1.5; margin-top: 15px;">Please log in to your Tutor Dashboard to accept and pay the commission fee.</p>
                 </div>
               </div>
             `,
@@ -336,6 +347,7 @@ export async function PATCH(request: Request) {
             console.log(`📨 DIRECT TUITION REQUEST EMAIL 📨`);
             console.log(`To: ${tutor.email}`);
             console.log(`Job ID: ${job.id}`);
+            console.log(`Commission: ৳${commissionAmount}`);
             console.log(`========================================\n\n`);
           }
         } catch (mailErr) {
@@ -347,16 +359,146 @@ export async function PATCH(request: Request) {
     }
 
     if (action === "accept") {
-      // Unlock immediately since the service is free
+      // Tutor accepts a direct request — job moves to ASSIGNED but NOT unlocked
+      // Tutor must pay commission before details are released
+      const job = await prisma.tuitionJob.findUnique({
+        where: { id: jobId }
+      });
+      if (!job) {
+        return new NextResponse("Job not found", { status: 404 });
+      }
+
+      const commissionAmount = job.commissionAmount || Math.ceil(job.salary * 0.10);
+
       const updatedJob = await prisma.tuitionJob.update({
         where: { id: jobId },
         data: {
           status: "ASSIGNED",
-          locationUnlocked: true
+          locationUnlocked: false,
+          commissionPaid: false,
+          commissionAmount,
         }
       });
 
       return NextResponse.json(updatedJob);
+    }
+
+    if (action === "pay-commission") {
+      const { trxId } = body;
+      if (!trxId || trxId.trim().length === 0) {
+        return new NextResponse("Transaction ID (trxId) is required", { status: 400 });
+      }
+
+      // Verify the user is a TUTOR
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true }
+      });
+      if (user?.role !== "TUTOR") {
+        return new NextResponse("Only tutors can pay commission fees", { status: 403 });
+      }
+
+      // Get the job
+      const job = await prisma.tuitionJob.findUnique({
+        where: { id: jobId }
+      });
+      if (!job) {
+        return new NextResponse("Job not found", { status: 404 });
+      }
+      if (job.tutorId !== userId) {
+        return new NextResponse("You are not assigned to this job", { status: 403 });
+      }
+      if (job.commissionPaid) {
+        return new NextResponse("Commission already paid for this job", { status: 400 });
+      }
+
+      const commissionAmount = job.commissionAmount || Math.ceil(job.salary * 0.10);
+
+      // Check for duplicate trxId
+      const existingPayment = await prisma.payment.findUnique({
+        where: { trxId: trxId.trim() }
+      });
+      if (existingPayment) {
+        return new NextResponse("This transaction ID has already been used", { status: 400 });
+      }
+
+      // Create payment record and unlock details
+      const [payment, updatedJob] = await prisma.$transaction([
+        prisma.payment.create({
+          data: {
+            amount: commissionAmount,
+            status: "SUCCESS",
+            type: "COMMISSION_FEE",
+            trxId: trxId.trim(),
+            jobId: jobId,
+            tutorId: userId,
+            payerRole: "TUTOR",
+          }
+        }),
+        prisma.tuitionJob.update({
+          where: { id: jobId },
+          data: {
+            commissionPaid: true,
+            commissionAmount,
+            locationUnlocked: true,
+            tutorDetailsReleased: true,
+          }
+        })
+      ]);
+
+      return NextResponse.json({ payment, job: updatedJob, message: "Commission paid! Full details unlocked." });
+    }
+
+    if (action === "request-refund") {
+      const { reason } = body;
+
+      // Verify the user is a TUTOR
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true }
+      });
+      if (user?.role !== "TUTOR") {
+        return new NextResponse("Only tutors can request refunds", { status: 403 });
+      }
+
+      // Find the commission payment for this job
+      const payment = await prisma.payment.findFirst({
+        where: {
+          jobId: jobId,
+          tutorId: userId,
+          type: "COMMISSION_FEE",
+          status: "SUCCESS",
+        }
+      });
+
+      if (!payment) {
+        return new NextResponse("No commission payment found for this job", { status: 404 });
+      }
+
+      if (payment.refundStatus) {
+        return new NextResponse("Refund has already been " + (payment.refundStatus === "REQUESTED" ? "requested" : payment.refundStatus.toLowerCase()), { status: 400 });
+      }
+
+      // Check 24-hour window
+      const paymentTime = new Date(payment.createdAt).getTime();
+      const now = Date.now();
+      const hoursElapsed = (now - paymentTime) / (1000 * 60 * 60);
+
+      if (hoursElapsed > 24) {
+        return new NextResponse("Refund window expired. Refunds must be requested within 24 hours of payment.", { status: 400 });
+      }
+
+      // Update payment with refund request
+      const updatedPayment = await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          refundRequestedAt: new Date(),
+          refundStatus: "REQUESTED",
+          refundReason: reason || "No reason provided",
+        }
+      });
+
+      return NextResponse.json({ payment: updatedPayment, message: "Refund request submitted. Admin will review within 24 hours." });
     }
 
     return new NextResponse("Invalid action", { status: 400 });
