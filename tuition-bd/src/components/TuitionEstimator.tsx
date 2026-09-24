@@ -1,4 +1,5 @@
 "use client";
+import { fetchApi } from "@/lib/api";
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -83,9 +84,8 @@ export default function TuitionEstimator({}: TuitionEstimatorProps = {}) {
   useEffect(() => {
     async function loadMeta() {
       try {
-        const res = await fetch("/api/market-data");
-        if (res.ok) {
-          const data = await res.json();
+        const data = await fetchApi("/market-data");
+        if (data) {
           if (data.locations && data.locations.length > 0) {
             setLocationsList(data.locations);
             // Ensure selected location is in list
@@ -107,7 +107,7 @@ export default function TuitionEstimator({}: TuitionEstimatorProps = {}) {
           }
         }
       } catch (err) {
-        console.error("Meta loading error", err);
+        console.warn("Meta loading error", err);
       }
     }
     loadMeta();
@@ -124,9 +124,8 @@ export default function TuitionEstimator({}: TuitionEstimatorProps = {}) {
         )}&classLevel=${encodeURIComponent(classLevel)}&subject=${encodeURIComponent(
           subject
         )}&days=${days}`;
-        const res = await fetch(url);
-        if (res.ok && active) {
-          const data = await res.json();
+        const data = await fetchApi(url.replace('/api', ''));
+        if (data && active) {
           setMinSalary(data.minSalary);
           setMaxSalary(data.maxSalary);
           setTutorDensity(data.tutorDensity);
@@ -134,7 +133,7 @@ export default function TuitionEstimator({}: TuitionEstimatorProps = {}) {
           setMatchTime(data.matchTime);
         }
       } catch (err) {
-        console.error("Error fetching estimates", err);
+        console.warn("Error fetching estimates", err);
       } finally {
         if (active) setLoading(false);
       }

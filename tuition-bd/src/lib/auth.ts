@@ -1,7 +1,7 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import prisma from "@/lib/prisma";
-import bcrypt from "bcryptjs";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -17,36 +17,38 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Invalid credentials or missing role selection");
         }
 
-        const email = credentials.email.trim();
+        try {
+          const res = await fetch(`${API_BASE_URL}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: credentials.email.trim(),
+              password: credentials.password,
+            }),
+          });
 
-        const user = await prisma.user.findUnique({
-          where: { email },
-        });
+          if (!res.ok) {
+            throw new Error("Invalid credentials");
+          }
 
-        if (!user || !user.password) {
-          throw new Error("Invalid credentials");
+          const data = await res.json();
+
+          // The backend returns { token, id, email, roles }
+          const userRoles = data.roles || [];
+          if (!userRoles.includes(credentials.role) && !userRoles.includes("ROLE_ADMIN")) {
+            throw new Error(`Account does not have a registered ${credentials.role} profile.`);
+          }
+
+          return {
+            id: data.id,
+            email: data.email,
+            name: data.email, // Can be improved if backend returns name
+            role: userRoles.includes("ROLE_ADMIN") ? "ADMIN" : credentials.role,
+            token: data.token,
+          };
+        } catch (error) {
+          throw new Error("Authentication failed");
         }
-
-        const isCorrectPassword = await bcrypt.compare(
-          credentials.password,
-          user.password
-        );
-
-        if (!isCorrectPassword) {
-          throw new Error("Invalid credentials");
-        }
-
-        // Check if the user's account actually has the requested role
-        if (!user.role.includes(credentials.role) && user.role !== "ADMIN") {
-          throw new Error(`Account does not have a registered ${credentials.role} profile.`);
-        }
-
-        return {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role === "ADMIN" ? "ADMIN" : credentials.role,
-        };
       },
     }),
   ],
@@ -61,6 +63,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.role = (user as any).role;
         token.id = user.id;
+        token.token = (user as any).token;
       }
       return token;
     },
@@ -68,6 +71,7 @@ export const authOptions: NextAuthOptions = {
       if (session?.user) {
         (session.user as any).role = token.role;
         (session.user as any).id = token.id;
+        (session.user as any).token = token.token;
       }
       return session;
     },

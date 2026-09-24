@@ -7,16 +7,11 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "postinstall": "prisma generate"
-  },
-  "prisma": {
-    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed-jobs.ts"
+    "lint": "eslint"
   },
   "dependencies": {
-    "@prisma/client": "^5.22.0",
     "@types/bcryptjs": "^2.4.6",
     "@vercel/blob": "^2.3.3",
     "bcryptjs": "^3.0.3",
@@ -26,7 +21,6 @@
     "next": "15.1.12",
     "next-auth": "^4.24.14",
     "nodemailer": "^7.0.13",
-    "prisma": "^5.22.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-leaflet": "^5.0.0",

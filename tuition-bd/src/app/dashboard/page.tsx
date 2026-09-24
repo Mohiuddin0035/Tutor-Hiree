@@ -9,6 +9,7 @@ import { detectFaceInImage } from "@/lib/faceDetection";
 import { motion, AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
 import ProgressTracker from "@/components/ProgressTracker";
+import { fetchApi } from "@/lib/api";
 
 const MapPicker = dynamic(() => import("@/components/map/MapPicker"), {
   ssr: false,
@@ -246,8 +247,7 @@ export default function Dashboard() {
         return;
       }
 
-      fetch(`/api/profile?t=${Date.now()}`)
-        .then((res) => res.json())
+      fetchApi(`/profile?t=${Date.now()}`)
         .then((data) => {
           if (data.phone) setPhone(data.phone);
           if (data.address) setAddress(data.address);
@@ -282,8 +282,7 @@ export default function Dashboard() {
 
           // Fetch parent's own listings
           if (data.role === "PARENT" || (session.user as any)?.role === "PARENT") {
-            fetch("/api/jobs?mine=true")
-              .then((r) => r.json())
+            fetchApi("/jobs?mine=true")
               .then((jobs) => setMyJobs(Array.isArray(jobs) ? jobs : []))
               .catch(() => {});
           }
@@ -295,26 +294,18 @@ export default function Dashboard() {
   const handleAcceptRequest = async (jobId: string) => {
     setIsAccepting(true);
     try {
-      const res = await fetch("/api/jobs", {
+      await fetchApi("/jobs", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           jobId,
           action: "accept",
         })
       });
-      if (res.ok) {
-        setRequestModalJob(null);
-        setPopupType("success");
-        setPopupMessage("✓ Request accepted! Please pay the 10% commission fee from your dashboard to unlock parent contact details.");
-        setPopupOpen(true);
-        loadDashboardData();
-      } else {
-        const txt = await res.text();
-        setPopupType("error");
-        setPopupMessage(txt || "Failed to accept direct request.");
-        setPopupOpen(true);
-      }
+      setRequestModalJob(null);
+      setPopupType("success");
+      setPopupMessage("✓ Request accepted! Please pay the 10% commission fee from your dashboard to unlock parent contact details.");
+      setPopupOpen(true);
+      loadDashboardData();
     } catch (e) {
       setPopupType("error");
       setPopupMessage("Network error accepting request.");
@@ -333,27 +324,19 @@ export default function Dashboard() {
     }
     setPayingCommissionJobId(jobId);
     try {
-      const res = await fetch("/api/jobs", {
+      await fetchApi("/jobs", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           jobId,
           action: "pay-commission",
           trxId: commissionTrxId.trim(),
         })
       });
-      if (res.ok) {
-        setCommissionTrxId("");
-        setPopupType("success");
-        setPopupMessage("✓ Commission paid successfully! Full parent contact details have been unlocked.");
-        setPopupOpen(true);
-        loadDashboardData();
-      } else {
-        const txt = await res.text();
-        setPopupType("error");
-        setPopupMessage(txt || "Failed to process commission payment.");
-        setPopupOpen(true);
-      }
+      setCommissionTrxId("");
+      setPopupType("success");
+      setPopupMessage("✓ Commission paid successfully! Full parent contact details have been unlocked.");
+      setPopupOpen(true);
+      loadDashboardData();
     } catch (e) {
       setPopupType("error");
       setPopupMessage("Network error processing payment.");
@@ -366,27 +349,19 @@ export default function Dashboard() {
   const handleRequestRefund = async (jobId: string) => {
     setRequestingRefundJobId(jobId);
     try {
-      const res = await fetch("/api/jobs", {
+      await fetchApi("/jobs", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           jobId,
           action: "request-refund",
           reason: refundReason || "Requesting refund",
         })
       });
-      if (res.ok) {
-        setRefundReason("");
-        setPopupType("success");
-        setPopupMessage("✓ Refund request submitted! Admin will review within 24 hours.");
-        setPopupOpen(true);
-        loadDashboardData();
-      } else {
-        const txt = await res.text();
-        setPopupType("error");
-        setPopupMessage(txt || "Failed to request refund.");
-        setPopupOpen(true);
-      }
+      setRefundReason("");
+      setPopupType("success");
+      setPopupMessage("✓ Refund request submitted! Admin will review within 24 hours.");
+      setPopupOpen(true);
+      loadDashboardData();
     } catch (e) {
       setPopupType("error");
       setPopupMessage("Network error requesting refund.");
@@ -418,25 +393,16 @@ export default function Dashboard() {
 
   const handleRequestReactivation = async () => {
     try {
-      const res = await fetch("/api/profile", {
+      await fetchApi("/profile", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({
           reactivationRequested: true,
         }),
       });
-      if (res.ok) {
-        setReactivationRequested(true);
-        setPopupType("success");
-        setPopupMessage("Your reactivation request has been sent successfully. Please allow up to 24 hours for review, or call our helpline at 096-96-847-847 for immediate assistance.");
-        setPopupOpen(true);
-      } else {
-        setPopupType("error");
-        setPopupMessage("Failed to send reactivation request.");
-        setPopupOpen(true);
-      }
+      setReactivationRequested(true);
+      setPopupType("success");
+      setPopupMessage("Your reactivation request has been sent successfully. Please allow up to 24 hours for review, or call our helpline at 096-96-847-847 for immediate assistance.");
+      setPopupOpen(true);
     } catch (err) {
       console.error(err);
       setPopupType("error");
@@ -450,11 +416,8 @@ export default function Dashboard() {
     setIsSavingProfile(true);
     setProfileMessage("");
     try {
-      const res = await fetch("/api/profile", {
+      await fetchApi("/profile", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({ 
           phone, 
           address, 
@@ -469,12 +432,7 @@ export default function Dashboard() {
           actualLongitude
         }),
       });
-
-      if (res.ok) {
-        setProfileMessage("✓ Profile configurations updated successfully!");
-      } else {
-        setProfileMessage("Failed to update profile settings.");
-      }
+      setProfileMessage("✓ Profile configurations updated successfully!");
     } catch (err) {
       console.error("SAVE_PROFILE_ERROR", err);
       setProfileMessage("An error occurred while saving profile.");
@@ -866,53 +824,40 @@ export default function Dashboard() {
 
                         // 1. Upload NID Scan if selected
                         if (nidFile) {
-                          const uploadRes = await fetch(`/api/upload?context=tutor&filename=${encodeURIComponent("nid-" + nidFile.name)}`, {
+                          const formData = new FormData();
+                          formData.append('file', nidFile);
+                          const uploadRes = await fetchApi(`/upload`, {
                             method: "POST",
-                            body: nidFile,
+                            body: formData,
                           });
-
-                          if (!uploadRes.ok) {
-                            throw new Error("Failed to upload National ID scan.");
-                          }
-
-                          const blobJson = await uploadRes.json();
-                          nidUrl = blobJson.url;
+                          nidUrl = uploadRes.url;
                         }
 
                         // 2. Upload Student ID Scan if selected
                         if (studentIdFile) {
-                          const uploadRes = await fetch(`/api/upload?context=tutor&filename=${encodeURIComponent("stud-" + studentIdFile.name)}`, {
+                          const formData = new FormData();
+                          formData.append('file', studentIdFile);
+                          const uploadRes = await fetchApi(`/upload`, {
                             method: "POST",
-                            body: studentIdFile,
+                            body: formData,
                           });
-
-                          if (!uploadRes.ok) {
-                            throw new Error("Failed to upload Student ID scan.");
-                          }
-
-                          const blobJson = await uploadRes.json();
-                          studentIdUrl = blobJson.url;
+                          studentIdUrl = uploadRes.url;
                         }
 
                         // 3. Upload Selfie if selected
                         if (selfieFile) {
-                          const uploadRes = await fetch(`/api/upload?context=tutor&filename=${encodeURIComponent("selfie-" + selfieFile.name)}`, {
+                          const formData = new FormData();
+                          formData.append('file', selfieFile);
+                          const uploadRes = await fetchApi(`/upload`, {
                             method: "POST",
-                            body: selfieFile,
+                            body: formData,
                           });
-
-                          if (!uploadRes.ok) {
-                            throw new Error("Failed to upload Selfie holding ID.");
-                          }
-
-                          const blobJson = await uploadRes.json();
-                          selfieUrl = blobJson.url;
+                          selfieUrl = uploadRes.url;
                         }
 
                         // 4. Log profile verification in real database
-                        const res = await fetch("/api/profile/verify", {
+                        await fetchApi("/profile/verify", {
                           method: "POST",
-                          headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({
                             nidImageUrl: nidUrl || undefined,
                             universityIdImageUrl: studentIdUrl || undefined,
@@ -921,19 +866,13 @@ export default function Dashboard() {
                         });
 
                         setIsSubmittingVerify(false);
-                        if (res.ok) {
-                          setVerificationStatus("PENDING");
-                          setRejectionReason("");
-                          setRejectedAt("");
-                          setPopupType("success");
-                          setPopupMessage("✓ Credentials uploaded and verification request logged! Your files are now under verification by the TutorHire Admin.");
-                          setPopupOpen(true);
-                          formEl.reset();
-                        } else {
-                          setPopupType("error");
-                          setPopupMessage("Failed to record verification request. Please try again.");
-                          setPopupOpen(true);
-                        }
+                        setVerificationStatus("PENDING");
+                        setRejectionReason("");
+                        setRejectedAt("");
+                        setPopupType("success");
+                        setPopupMessage("✓ Credentials uploaded and verification request logged! Your files are now under verification by the TutorHire Admin.");
+                        setPopupOpen(true);
+                        formEl.reset();
                       } catch (error: any) {
                         console.error("UPLOAD_VERIFY_ERROR", error);
                         setPopupType("error");
@@ -1441,20 +1380,19 @@ export default function Dashboard() {
                         longitude: 90.4125,
                       };
 
-                      const res = await fetch("/api/jobs", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(data),
-                      });
-
-                      setIsSubmittingJob(false);
-                      if (res.ok) {
+                      try {
+                        await fetchApi("/jobs", {
+                          method: "POST",
+                          body: JSON.stringify(data),
+                        });
+                        setIsSubmittingJob(false);
                         alert("✓ Tuition job posted successfully!");
                         formEl.reset();
                         // Refresh my listings
-                        const r = await fetch("/api/jobs?mine=true");
-                        if (r.ok) setMyJobs(await r.json());
-                      } else {
+                        const jobs = await fetchApi("/jobs?mine=true");
+                        setMyJobs(Array.isArray(jobs) ? jobs : []);
+                      } catch (err) {
+                        setIsSubmittingJob(false);
                         alert("Failed to post tuition job.");
                       }
                     }}
@@ -1605,10 +1543,10 @@ export default function Dashboard() {
                                 type="button"
                                 onClick={async () => {
                                   if (!confirm("Delete this listing? This cannot be undone.")) return;
-                                  const res = await fetch(`/api/jobs?jobId=${job.id}`, { method: "DELETE" });
-                                  if (res.ok) {
+                                  try {
+                                    await fetchApi(`/jobs?jobId=${job.id}`, { method: "DELETE" });
                                     setMyJobs(prev => prev.filter((j: any) => j.id !== job.id));
-                                  } else {
+                                  } catch (err) {
                                     alert("Failed to delete listing.");
                                   }
                                 }}
@@ -1710,7 +1648,7 @@ export default function Dashboard() {
                                 <div className="flex items-center gap-2 mb-2">
                                   <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider font-bold">📊 Student Progress</span>
                                 </div>
-                                <ProgressTracker role="PARENT" jobId={t.jobId} jobTitle={t.jobTitle} jobSubject={t.subject} />
+                                <ProgressTracker role="PARENT" jobId={t.jobId} jobTitle={t.jobTitle} jobSubject={t.subject} guardianId={(session?.user as any)?.id} />
                               </div>
                             )}
                           </div>
@@ -1740,17 +1678,16 @@ export default function Dashboard() {
                             comment: formData.get("comment"),
                           };
 
-                          const res = await fetch("/api/reviews", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify(data),
-                          });
-
-                          setIsSubmittingReview(false);
-                          if (res.ok) {
+                          try {
+                            await fetchApi("/reviews", {
+                              method: "POST",
+                              body: JSON.stringify(data),
+                            });
+                            setIsSubmittingReview(false);
                             alert("✓ Review feedback submitted successfully!");
                             formEl.reset();
-                          } else {
+                          } catch (err) {
+                            setIsSubmittingReview(false);
                             alert("Failed to post review.");
                           }
                         }}

@@ -1,4 +1,5 @@
 "use client";
+import { fetchApi } from "@/lib/api";
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -276,20 +277,13 @@ export default function AdminDashboard() {
   const handleAssignTutor = async (jobId: string, tutorId: string) => {
     if (!confirm("Are you sure you want to manually assign this tutor to this job (Pay Later term)?")) return;
     try {
-      const res = await fetch("/api/admin/jobs", {
+      await fetchApi("/admin/jobs", {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({ jobId, action: "assign", tutorId }),
       });
-      if (res.ok) {
-        alert("✓ Tutor assigned manually successfully (Pay Later active).");
-        fetchJobsList();
-        handleReFetchSearch();
-      } else {
-        alert("Failed to assign tutor.");
-      }
+      alert("✓ Tutor assigned manually successfully (Pay Later active).");
+      fetchJobsList();
+      handleReFetchSearch();
     } catch (err) {
       console.error("Assign tutor error:", err);
       alert("An error occurred while assigning tutor.");
@@ -305,17 +299,12 @@ export default function AdminDashboard() {
     if (!confirm("Are you sure you want to ban this user? Their account will be deleted and phone number blacklisted.")) return;
 
     try {
-      const res = await fetch("/api/admin/ban", {
+      await fetchApi("/admin/ban", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, reason }),
       });
-      if (res.ok) {
-        alert("✓ User has been successfully banned and their number blacklisted.");
-        fetchAllProfilesList();
-      } else {
-        alert("Failed to ban user.");
-      }
+      alert("✓ User has been successfully banned and their number blacklisted.");
+      fetchAllProfilesList();
     } catch (err) {
       console.error("Ban error:", err);
       alert("An error occurred while banning the user.");
@@ -326,15 +315,11 @@ export default function AdminDashboard() {
     if (!confirm("Are you sure you want to completely remove this user? Their profile and jobs will be deleted, but they can register again later. This action cannot be undone.")) return;
 
     try {
-      const res = await fetch(`/api/admin/remove?userId=${userId}`, {
+      await fetchApi(`/admin/remove?userId=${userId}`, {
         method: "DELETE",
       });
-      if (res.ok) {
-        alert("✓ User has been successfully deleted.");
-        fetchAllProfilesList();
-      } else {
-        alert("Failed to delete user.");
-      }
+      alert("✓ User has been successfully deleted.");
+      fetchAllProfilesList();
     } catch (err) {
       console.error("Delete user error:", err);
       alert("An error occurred while deleting the user.");
@@ -344,12 +329,8 @@ export default function AdminDashboard() {
   const handleUnban = async (blacklistId: string) => {
     if (!confirm("Are you sure you want to remove this number from the blacklist?")) return;
     try {
-      const res = await fetch(`/api/admin/blacklist?id=${blacklistId}`, { method: "DELETE" });
-      if (res.ok) {
-        fetchBlacklist();
-      } else {
-        alert("Failed to remove from blacklist.");
-      }
+      await fetchApi(`/admin/blacklist?id=${blacklistId}`, { method: "DELETE" });
+      fetchBlacklist();
     } catch (err) {
       console.error("Unban error:", err);
       alert("An error occurred while removing from blacklist.");
@@ -378,19 +359,14 @@ export default function AdminDashboard() {
 
   const handleApproveJob = async (jobId: string, requirement: string) => {
     try {
-      const res = await fetch("/api/admin/jobs", {
+      await fetchApi("/admin/jobs", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jobId, action: "approve", tutorRequirement: requirement }),
       });
-      if (res.ok) {
-        alert("✓ Tuition job approved and published live!");
-        fetchAllProfilesList();
-        fetchJobsList();
-        handleReFetchSearch();
-      } else {
-        alert("Failed to approve job post.");
-      }
+      alert("✓ Tuition job approved and published live!");
+      fetchAllProfilesList();
+      fetchJobsList();
+      handleReFetchSearch();
     } catch (err) {
       console.error(err);
       alert("Error approving job post.");
@@ -399,22 +375,17 @@ export default function AdminDashboard() {
 
   const handleToggleTutorActive = async (profileId: string, isActive: boolean) => {
     try {
-      const res = await fetch("/api/admin/profiles", {
+      await fetchApi("/admin/profiles", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           profileId,
           is_active: isActive,
           ...(isActive ? { reactivationRequested: false } : {})
         }),
       });
-      if (res.ok) {
-        alert(`✓ Tutor status updated to ${isActive ? "Active" : "Inactive"}.`);
-        fetchAllProfilesList();
-        handleReFetchSearch();
-      } else {
-        alert("Failed to update active status.");
-      }
+      alert(`✓ Tutor status updated to ${isActive ? "Active" : "Inactive"}.`);
+      fetchAllProfilesList();
+      handleReFetchSearch();
     } catch (err) {
       console.error("Toggle active error:", err);
       alert("An error occurred while updating status.");
@@ -424,21 +395,16 @@ export default function AdminDashboard() {
   const handleReleaseTutorDetails = async (jobId: string) => {
     if (!confirm("Are you sure you want to release this tutor's contact details to the parent?")) return;
     try {
-      const res = await fetch("/api/admin/jobs", {
+      await fetchApi("/admin/jobs", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           jobId,
           action: "release"
         }),
       });
-      if (res.ok) {
-        alert("✓ Tutor contact details released successfully!");
-        fetchJobsList();
-        handleReFetchSearch();
-      } else {
-        alert("Failed to release details.");
-      }
+      alert("✓ Tutor contact details released successfully!");
+      fetchJobsList();
+      handleReFetchSearch();
     } catch (err) {
       console.error("Release details error:", err);
       alert("An error occurred while releasing details.");
@@ -448,30 +414,24 @@ export default function AdminDashboard() {
   // Verification Approvals and Rejections controller
   const handleVerify = async (profileId: string, verifyStatus: "VERIFIED" | "REJECTED", reason?: string) => {
     try {
-      const res = await fetch("/api/admin/verify", {
+      await fetchApi("/admin/verify", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           profileId,
           status: verifyStatus,
           rejectionReason: verifyStatus === "REJECTED" ? reason : undefined,
         }),
       });
-
-      if (res.ok) {
-        setPendingProfiles((prev) => prev.filter((p) => p.id !== profileId));
-        alert(`✓ Tutor account status has been marked as ${verifyStatus.toLowerCase()} successfully.`);
-        setRejectionPromptProfileId(null);
-        setRejectionReasonInput("");
-        setCustomRejectionSelected(false);
-        // Refresh directories list too if loaded
-        if (activeTab === "tutors" || activeTab === "parents") {
-          fetchAllProfilesList();
-        }
-        handleReFetchSearch();
-      } else {
-        alert("Failed to update verification status.");
+      setPendingProfiles((prev) => prev.filter((p) => p.id !== profileId));
+      alert(`✓ Tutor account status has been marked as ${verifyStatus.toLowerCase()} successfully.`);
+      setRejectionPromptProfileId(null);
+      setRejectionReasonInput("");
+      setCustomRejectionSelected(false);
+      // Refresh directories list too if loaded
+      if (activeTab === "tutors" || activeTab === "parents") {
+        fetchAllProfilesList();
       }
+      handleReFetchSearch();
     } catch (err) {
       console.error("Verification updates failed:", err);
       alert("An error occurred while modifying account verification.");
@@ -485,9 +445,8 @@ export default function AdminDashboard() {
     setEditError("");
 
     try {
-      const res = await fetch("/api/admin/profiles", {
+      await fetchApi("/admin/profiles", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           profileId: editingProfile.id,
           name: editForm.name,
@@ -502,19 +461,13 @@ export default function AdminDashboard() {
           rejectionReason: editForm.verificationStatus === "REJECTED" ? editForm.rejectionReason : undefined,
         }),
       });
-
-      if (res.ok) {
-        setEditingProfile(null);
-        alert("✓ Master account records synchronized and successfully updated!");
-        // Refresh active views
-        if (activeTab === "tutors" || activeTab === "parents") {
-          fetchAllProfilesList();
-        } else {
-          fetchPendingVerifications();
-        }
+      setEditingProfile(null);
+      alert("✓ Master account records synchronized and successfully updated!");
+      // Refresh active views
+      if (activeTab === "tutors" || activeTab === "parents") {
+        fetchAllProfilesList();
       } else {
-        const errMsg = await res.text();
-        setEditError(errMsg || "Failed to update profile records.");
+        fetchPendingVerifications();
       }
     } catch (err) {
       console.error("Save details error:", err);
@@ -1517,13 +1470,13 @@ export default function AdminDashboard() {
                                     <button
                                       type="button"
                                       onClick={async () => {
-                                        const res = await fetch("/api/admin/jobs", {
-                                          method: "PATCH",
-                                          headers: { "Content-Type": "application/json" },
-                                          body: JSON.stringify({ jobId: job.id, action: "verify-payment" })
-                                        });
-                                        if (res.ok) { fetchJobsList(); alert("Payment verified and details unlocked."); }
-                                        else alert("Failed to verify payment.");
+                                        try {
+                                          await fetchApi("/admin/jobs", {
+                                            method: "PATCH",
+                                            body: JSON.stringify({ jobId: job.id, action: "verify-payment" })
+                                          });
+                                          fetchJobsList(); alert("Payment verified and details unlocked.");
+                                        } catch(err) { alert("Failed to verify payment."); }
                                       }}
                                       className="bg-emerald-600/25 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-lg text-[9px] font-mono font-bold uppercase cursor-pointer transition duration-150"
                                     >
@@ -1553,13 +1506,13 @@ export default function AdminDashboard() {
                                           <button
                                             type="button"
                                             onClick={async () => {
-                                              const res = await fetch("/api/admin/jobs", {
-                                                method: "PATCH",
-                                                headers: { "Content-Type": "application/json" },
-                                                body: JSON.stringify({ jobId: job.id, paymentId: payment.id, action: "approve-refund" })
-                                              });
-                                              if (res.ok) { fetchJobsList(); alert("Refund approved."); }
-                                              else alert("Failed to approve refund.");
+                                              try {
+                                                await fetchApi("/admin/jobs", {
+                                                  method: "PATCH",
+                                                  body: JSON.stringify({ jobId: job.id, paymentId: payment.id, action: "approve-refund" })
+                                                });
+                                                fetchJobsList(); alert("Refund approved.");
+                                              } catch (err) { alert("Failed to approve refund."); }
                                             }}
                                             className="bg-red-600/25 hover:bg-red-600/40 text-red-400 border border-red-500/30 px-2 py-1 rounded-lg text-[9px] font-mono font-bold uppercase cursor-pointer transition"
                                           >
@@ -1568,13 +1521,13 @@ export default function AdminDashboard() {
                                           <button
                                             type="button"
                                             onClick={async () => {
-                                              const res = await fetch("/api/admin/jobs", {
-                                                method: "PATCH",
-                                                headers: { "Content-Type": "application/json" },
-                                                body: JSON.stringify({ jobId: job.id, paymentId: payment.id, action: "reject-refund" })
-                                              });
-                                              if (res.ok) { fetchJobsList(); alert("Refund rejected."); }
-                                              else alert("Failed to reject refund.");
+                                              try {
+                                                await fetchApi("/admin/jobs", {
+                                                  method: "PATCH",
+                                                  body: JSON.stringify({ jobId: job.id, paymentId: payment.id, action: "reject-refund" })
+                                                });
+                                                fetchJobsList(); alert("Refund rejected.");
+                                              } catch (err) { alert("Failed to reject refund."); }
                                             }}
                                             className="bg-slate-700 hover:bg-slate-600 text-slate-300 border border-slate-600 px-2 py-1 rounded-lg text-[9px] font-mono font-bold uppercase cursor-pointer transition"
                                           >
@@ -1994,16 +1947,15 @@ export default function AdminDashboard() {
                           type="button"
                           onClick={async () => {
                             const reqVal = (document.getElementById("searchRequirementInput") as HTMLInputElement)?.value;
-                            const res = await fetch("/api/admin/jobs", {
-                              method: "PATCH",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ jobId: tuitionSearchResult.id, action: "updateRequirement", tutorRequirement: reqVal }),
-                            });
-                            if (res.ok) {
+                            try {
+                              await fetchApi("/admin/jobs", {
+                                method: "PATCH",
+                                body: JSON.stringify({ jobId: tuitionSearchResult.id, action: "updateRequirement", tutorRequirement: reqVal }),
+                              });
                               alert("✓ Tutor requirement updated successfully.");
                               handleReFetchSearch();
                               fetchJobsList();
-                            } else {
+                            } catch(err) {
                               alert("Failed to update requirement.");
                             }
                           }}

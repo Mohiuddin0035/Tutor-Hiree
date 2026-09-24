@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import { fetchApi } from "@/lib/api";
 
 export default function ForgotPassword() {
   const router = useRouter();
@@ -37,15 +38,10 @@ export default function ForgotPassword() {
     setMessage("");
 
     try {
-      const res = await fetch("/api/auth/forgot-password", {
+      await fetchApi("/auth/forgot-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: data.email })
       });
-
-      if (!res.ok) {
-        throw new Error(await res.text());
-      }
       
       setMessage("An OTP code has been sent to your email.");
       setStep(2);
@@ -64,15 +60,10 @@ export default function ForgotPassword() {
     setMessage("");
 
     try {
-      const res = await fetch("/api/auth/verify-otp", {
+      await fetchApi("/auth/verify-otp", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: data.email, otp: data.otp })
       });
-
-      if (!res.ok) {
-        throw new Error(await res.text());
-      }
 
       setMessage("OTP Confirmed. Please establish your new security key.");
       setStep(3);
@@ -102,19 +93,14 @@ export default function ForgotPassword() {
     }
 
     try {
-      const res = await fetch("/api/auth/reset-password", {
+      await fetchApi("/auth/reset-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           email: data.email, 
           otp: data.otp,
           newPassword: data.newPassword 
         })
       });
-
-      if (!res.ok) {
-        throw new Error(await res.text());
-      }
 
       setMessage("Security key updated successfully! Redirecting...");
       setTimeout(() => {

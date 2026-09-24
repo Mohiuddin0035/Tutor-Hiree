@@ -1,4 +1,5 @@
 "use client";
+import { fetchApi } from "@/lib/api";
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -41,14 +42,12 @@ export default function MapPreviewIntro({ onComplete }: MapPreviewIntroProps) {
   useEffect(() => {
     async function fetchRealtimeMapData() {
       try {
-        const [jobsRes, tutorsRes] = await Promise.all([
-          fetch("/api/jobs"),
-          fetch("/api/users?role=TUTOR")
+        const [jobs, tutors] = await Promise.all([
+          fetchApi("/jobs"),
+          fetchApi("/users?role=TUTOR")
         ]);
 
-        if (jobsRes.ok && tutorsRes.ok) {
-          const jobs = await jobsRes.json();
-          const tutors = await tutorsRes.json();
+        if (jobs && tutors) {
 
           const validJobs = Array.isArray(jobs) ? jobs.filter(j => j.approxLat && j.approxLng) : [];
           const validTutors = Array.isArray(tutors) ? tutors.filter(t => t.profile?.latitude && t.profile?.longitude) : [];
@@ -78,7 +77,7 @@ export default function MapPreviewIntro({ onComplete }: MapPreviewIntroProps) {
           }
         }
       } catch (err) {
-        console.error("ONBOARDING_LIVE_DATA_FETCH_FAILED", err);
+        console.warn("ONBOARDING_LIVE_DATA_FETCH_FAILED", err);
       }
     }
 

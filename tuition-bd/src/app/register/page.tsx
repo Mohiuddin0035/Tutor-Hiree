@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { detectFaceInImage } from "@/lib/faceDetection";
+import { fetchApi } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
 
@@ -139,17 +140,16 @@ export default function Register() {
     setError("");
 
     try {
-      const response = await fetch(`/api/upload?context=register&filename=${encodeURIComponent(file.name)}`, {
+      // Note: FileUploadController expects multipart form data with name 'file'
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetchApi(`/upload`, {
         method: "POST",
-        body: file,
+        body: formData,
       });
 
-      if (!response.ok) {
-        throw new Error("Upload failed");
-      }
-
-      const json = await response.json();
-      setNidImageUrl(json.url);
+      setNidImageUrl(response.url);
       setUploadStatus("done");
     } catch (err) {
       console.error("NID_UPLOAD_ERROR", err);
@@ -192,17 +192,15 @@ export default function Register() {
     setError("");
 
     try {
-      const response = await fetch(`/api/upload?context=register&filename=${encodeURIComponent(file.name)}`, {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetchApi(`/upload`, {
         method: "POST",
-        body: file,
+        body: formData,
       });
 
-      if (!response.ok) {
-        throw new Error("Upload failed");
-      }
-
-      const json = await response.json();
-      setUniversityIdImageUrl(json.url);
+      setUniversityIdImageUrl(response.url);
       setUploadStatusStudentId("done");
     } catch (err) {
       console.error("STUDENT_ID_UPLOAD_ERROR", err);
@@ -243,17 +241,15 @@ export default function Register() {
     setError("");
 
     try {
-      const response = await fetch(`/api/upload?context=register&filename=${encodeURIComponent(file.name)}`, {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetchApi(`/upload`, {
         method: "POST",
-        body: file,
+        body: formData,
       });
 
-      if (!response.ok) {
-        throw new Error("Upload failed");
-      }
-
-      const json = await response.json();
-      setSelfieImageUrl(json.url);
+      setSelfieImageUrl(response.url);
       setUploadStatusSelfie("done");
     } catch (err) {
       console.error("SELFIE_UPLOAD_ERROR", err);
@@ -306,20 +302,16 @@ export default function Register() {
       selfieImageUrl: data.role === "TUTOR" ? selfieImageUrl : undefined,
     };
 
-    const response = await fetch("/api/register", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    setLoading(false);
-    if (response.ok) {
+    try {
+      await fetchApi("/auth/register", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      setLoading(false);
       router.push("/login");
-    } else {
-      const errMsg = await response.text();
-      setError(errMsg || "Registration failed. Please check your inputs and try again.");
+    } catch (err: any) {
+      setLoading(false);
+      setError(err.message || "Registration failed. Please check your inputs and try again.");
     }
   };
 
