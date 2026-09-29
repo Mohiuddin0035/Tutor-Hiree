@@ -55,7 +55,7 @@ export default function AdminDashboard() {
   const router = useRouter();
 
   // Tab switcher and basic loaders
-  const [activeTab, setActiveTab] = useState<"documents" | "tutors" | "parents" | "blacklist" | "payments" | "jobs">("documents");
+  const [activeTab, setActiveTab] = useState<"documents" | "tutors" | "parents" | "blacklist" | "payments" | "jobs" | "confirmedJobs">("documents");
   const [pendingProfiles, setPendingProfiles] = useState<any[]>([]);
   const [editingRequirements, setEditingRequirements] = useState<Record<string, string>>({});
   const [loadingProfiles, setLoadingProfiles] = useState(true);
