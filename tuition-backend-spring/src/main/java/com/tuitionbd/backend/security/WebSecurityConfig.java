@@ -57,6 +57,7 @@ public class WebSecurityConfig {
                     .requestMatchers("/api/test/**").permitAll()
                     .requestMatchers("/api/market-data/**").permitAll()
                     .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/jobs/**", "/api/users/**").permitAll()
+                    .requestMatchers("/", "/health").permitAll()
                     .anyRequest().authenticated()
             );
 
