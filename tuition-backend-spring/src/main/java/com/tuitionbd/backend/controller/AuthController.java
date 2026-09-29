@@ -1,11 +1,13 @@
 package com.tuitionbd.backend.controller;
 
 import com.tuitionbd.backend.entity.User;
+import com.tuitionbd.backend.entity.Profile;
 import com.tuitionbd.backend.payload.request.LoginRequest;
 import com.tuitionbd.backend.payload.request.SignupRequest;
 import com.tuitionbd.backend.payload.response.JwtResponse;
 import com.tuitionbd.backend.payload.response.MessageResponse;
 import com.tuitionbd.backend.repository.UserRepository;
+import com.tuitionbd.backend.repository.ProfileRepository;
 import com.tuitionbd.backend.security.jwt.JwtUtils;
 import com.tuitionbd.backend.security.services.UserDetailsImpl;
 import jakarta.validation.Valid;
@@ -30,6 +32,9 @@ public class AuthController {
 
     @Autowired
     UserRepository userRepository;
+
+    @Autowired
+    ProfileRepository profileRepository;
 
     @Autowired
     PasswordEncoder encoder;
@@ -72,7 +77,32 @@ public class AuthController {
                 .role(signUpRequest.getRole() == null ? "PARENT" : signUpRequest.getRole())
                 .build();
 
-        userRepository.save(user);
+        User savedUser = userRepository.save(user);
+
+        Profile profile = new Profile();
+        profile.setUser(savedUser);
+        profile.setPhone(signUpRequest.getPhone());
+        profile.setAddress(signUpRequest.getAddress());
+        profile.setEducation(signUpRequest.getEducation());
+        profile.setBio(signUpRequest.getBio());
+        profile.setLatitude(signUpRequest.getLatitude());
+        profile.setLongitude(signUpRequest.getLongitude());
+        profile.setActualLatitude(signUpRequest.getActualLatitude());
+        profile.setActualLongitude(signUpRequest.getActualLongitude());
+        profile.setGender(signUpRequest.getGender());
+        profile.setPreferableTime(signUpRequest.getPreferable_time());
+        profile.setNidImageUrl(signUpRequest.getNidImageUrl());
+        profile.setUniversityIdImageUrl(signUpRequest.getUniversityIdImageUrl());
+        profile.setSelfieImageUrl(signUpRequest.getSelfieImageUrl());
+
+        // Default verification status
+        if ("PARENT".equals(savedUser.getRole())) {
+            profile.setVerificationStatus("VERIFIED");
+        } else {
+            profile.setVerificationStatus("UNVERIFIED");
+        }
+
+        profileRepository.save(profile);
 
         return ResponseEntity.ok(new MessageResponse("User registered successfully!"));
     }

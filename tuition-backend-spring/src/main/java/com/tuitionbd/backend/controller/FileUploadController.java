@@ -1,6 +1,6 @@
 package com.tuitionbd.backend.controller;
 
-import com.tuitionbd.backend.service.S3Service;
+import com.tuitionbd.backend.service.CloudinaryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,12 +16,12 @@ import java.util.Map;
 public class FileUploadController {
 
     @Autowired
-    private S3Service s3Service;
+    private CloudinaryService cloudinaryService;
 
     @PostMapping
     public ResponseEntity<?> uploadFile(@RequestParam("file") MultipartFile file) {
         try {
-            String url = s3Service.uploadFile(file);
+            String url = cloudinaryService.uploadFile(file);
             Map<String, String> response = new HashMap<>();
             response.put("url", url);
             return ResponseEntity.ok(response);

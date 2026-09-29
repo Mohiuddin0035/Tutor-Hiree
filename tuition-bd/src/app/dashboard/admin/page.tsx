@@ -348,7 +348,7 @@ export default function AdminDashboard() {
     if (!confirm("Are you sure you want to completely remove this user? Their profile and jobs will be deleted, but they can register again later. This action cannot be undone.")) return;
 
     try {
-      await fetchApi(`/admin/remove?userId=${userId}`, {
+      await fetchApi(`/admin/user/${userId}`, {
         method: "DELETE",
       });
       alert("✓ User has been successfully deleted.");
