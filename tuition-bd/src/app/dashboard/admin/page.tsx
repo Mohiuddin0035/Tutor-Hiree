@@ -63,6 +63,9 @@ export default function AdminDashboard() {
   const [loadingAllProfiles, setLoadingAllProfiles] = useState(false);
   const [blacklisted, setBlacklisted] = useState<any[]>([]);
   const [loadingBlacklist, setLoadingBlacklist] = useState(false);
+  
+  const [currentPagePending, setCurrentPagePending] = useState(1);
+  const ITEMS_PER_PAGE = 6;
 
   const [jobs, setJobs] = useState<any[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(false);
@@ -1236,100 +1239,120 @@ export default function AdminDashboard() {
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {pendingProfiles.map((profile) => (
-                      <div
-                        key={profile.id}
-                        className="bg-slate-950 border border-slate-850 p-6 rounded-2xl flex flex-col justify-between space-y-4 hover:border-slate-800 transition-all duration-300"
-                      >
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-indigo-400 font-bold font-mono px-2 py-0.5 bg-indigo-500/10 border border-indigo-500/20 rounded">
-                              {getVisualId(profile.user?.role || "TUTOR", profile.tutorSeq)}
-                            </span>
-                            <span className="text-[10px] text-yellow-500 bg-yellow-500/5 border border-yellow-500/20 px-2 py-0.5 rounded font-mono font-bold uppercase tracking-wider">
-                              Pending Review
-                            </span>
-                          </div>
-
-                          <div className="space-y-1">
-                            <h3 className="text-xs font-bold text-white leading-tight">{profile.user?.name || "Anonymous Educator"}</h3>
-                            <p className="text-xs text-slate-400 font-mono">{profile.user?.email}</p>
-                            <p className="text-xs text-slate-500 font-sans">📞 {profile.phone || "No phone registered"}</p>
-                          </div>
-
-                          <div className="h-px bg-slate-900" />
-
-                          <div className="space-y-2.5 font-sans text-xs">
-                            <div>
-                              <p className="text-slate-400">
-                                <strong className="text-slate-300 font-bold">Education:</strong> {profile.education || "Not specified"}
-                              </p>
-                              {profile.pendingEducation && (
-                                <div className="mt-1 bg-emerald-500/10 border border-emerald-500/20 p-2 rounded-xl text-emerald-400">
-                                  <strong className="text-[10px] uppercase font-mono tracking-wider block font-bold">Proposed Education Update:</strong>
-                                  <span className="font-semibold text-xs">{profile.pendingEducation}</span>
+                  <div className="overflow-x-auto bg-white rounded-xl border border-gray-200">
+                    <table className="w-full text-left border-collapse min-w-[700px]">
+                      <thead>
+                        <tr className="bg-gray-50 border-b border-gray-200">
+                          <th className="px-5 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider">Educator Details</th>
+                          <th className="px-5 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider">Education & Bio</th>
+                          <th className="px-5 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider text-center">Docs</th>
+                          <th className="px-5 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {pendingProfiles.slice((currentPagePending - 1) * ITEMS_PER_PAGE, currentPagePending * ITEMS_PER_PAGE).map((profile) => (
+                          <tr key={profile.id}>
+                            <td className="px-5 py-5 align-top w-[25%]">
+                              <div className="flex flex-col space-y-2">
+                                <span className="text-xs font-bold text-blue-700 px-2 py-1 bg-blue-50 border border-blue-100 rounded w-fit">
+                                  {getVisualId(profile.user?.role || "TUTOR", profile.tutorSeq)}
+                                </span>
+                                <span className="text-base font-bold text-black">{profile.user?.name || "Anonymous"}</span>
+                                <span className="text-xs text-gray-600 truncate max-w-[200px]" title={profile.user?.email}>{profile.user?.email}</span>
+                                <span className="text-xs text-gray-600">📞 {profile.phone || "No phone"}</span>
+                              </div>
+                            </td>
+                            <td className="px-5 py-5 align-top w-[45%]">
+                              <div className="flex flex-col space-y-4 text-sm leading-relaxed">
+                                <div>
+                                  <span className="font-bold text-gray-700 mr-2">Education:</span>
+                                  <span className="text-black">{profile.education || "Not specified"}</span>
+                                  {profile.pendingEducation && (
+                                    <div className="mt-2 bg-green-50 border border-green-200 p-3 rounded-lg text-green-800">
+                                      <strong className="block mb-1 text-xs">Proposed Education Update:</strong>
+                                      <span>{profile.pendingEducation}</span>
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-
-                            <div>
-                              <p className="text-slate-400 leading-relaxed max-h-[60px] overflow-y-auto italic">
-                                <strong className="text-slate-300 font-bold not-italic">Bio:</strong> "{profile.bio || "No biography provided."}"
-                              </p>
-                              {profile.pendingBio && (
-                                <div className="mt-1 bg-emerald-500/10 border border-emerald-500/20 p-2 rounded-xl text-emerald-400">
-                                  <strong className="text-[10px] uppercase font-mono tracking-wider block font-bold">Proposed Bio Update:</strong>
-                                  <span className="font-sans italic text-xs">"{profile.pendingBio}"</span>
+                                <div>
+                                  <span className="font-bold text-gray-700 mr-2">Bio:</span>
+                                  <span className="text-black italic line-clamp-3" title={profile.bio}>"{profile.bio || "No bio"}"</span>
+                                  {profile.pendingBio && (
+                                    <div className="mt-2 bg-green-50 border border-green-200 p-3 rounded-lg text-green-800">
+                                      <strong className="block mb-1 text-xs">Proposed Bio Update:</strong>
+                                      <span className="italic line-clamp-3" title={profile.pendingBio}>"{profile.pendingBio}"</span>
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                          </div>
+                              </div>
+                            </td>
+                            <td className="px-5 py-5 align-top text-center w-[10%]">
+                              <button
+                                type="button"
+                                onClick={() => setPreviewDocuments({
+                                  nid: profile.nidImageUrl,
+                                  idCard: profile.universityIdImageUrl,
+                                  selfie: profile.selfieImageUrl,
+                                  name: profile.user?.name || "Educator",
+                                  profileId: profile.id
+                                })}
+                                className="inline-flex items-center justify-center p-3 bg-white text-black border border-gray-300 rounded-lg cursor-pointer"
+                                title="Preview Documents"
+                              >
+                                <span className="text-xl">🔍</span>
+                              </button>
+                            </td>
+                            <td className="px-5 py-5 align-top text-right w-[20%]">
+                              <div className="flex flex-col items-end space-y-3">
+                                <button
+                                  type="button"
+                                  onClick={() => handleVerify(profile.id, "VERIFIED")}
+                                  className="w-[120px] bg-green-600 text-white py-2 rounded-lg text-xs font-bold cursor-pointer"
+                                >
+                                  Approve Profile
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setRejectionPromptProfileId(profile.id)}
+                                  className="w-[120px] bg-red-100 text-red-700 border border-red-300 py-2 rounded-lg text-xs font-bold cursor-pointer"
+                                >
+                                  Reject Scan
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditModal(profile)}
+                                  className="w-[120px] bg-white text-black border border-gray-300 py-2 rounded-lg text-xs font-bold cursor-pointer flex items-center justify-center space-x-2"
+                                >
+                                  <span>✏️</span> <span>Edit Data</span>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
 
-                          {/* Premium Document Preview Trigger */}
-                          <div className="pt-2">
-                            <button
-                              type="button"
-                              onClick={() => setPreviewDocuments({
-                                nid: profile.nidImageUrl,
-                                idCard: profile.universityIdImageUrl,
-                                selfie: profile.selfieImageUrl,
-                                name: profile.user?.name || "Educator",
-                                profileId: profile.id
-                              })}
-                              className="w-full flex items-center justify-center space-x-2 bg-slate-900 hover:bg-slate-850 text-slate-200 border border-slate-800 py-2.5 rounded-xl text-xs font-bold font-mono uppercase tracking-wider transition duration-200 cursor-pointer"
-                            >
-                              🔍 Preview Uploaded Documents
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="pt-4 border-t border-slate-900 flex space-x-3">
-                          <button
-                            type="button"
-                            onClick={() => handleVerify(profile.id, "VERIFIED")}
-                            className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-slate-950 py-2.5 rounded-xl text-xs font-bold transition duration-200 cursor-pointer shadow-[0_4px_10px_rgba(var(--theme-rgb),0.15)] text-center"
-                          >
-                            Approve Profile
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setRejectionPromptProfileId(profile.id)}
-                            className="flex-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 py-2.5 rounded-xl text-xs font-bold transition duration-200 cursor-pointer text-center"
-                          >
-                            Reject Scan
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditModal(profile)}
-                            className="bg-slate-900 hover:bg-slate-850 text-slate-400 border border-slate-800 px-3.5 py-2.5 rounded-xl transition duration-200 cursor-pointer"
-                            title="Edit Account Records"
-                          >
-                            ✏️
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                {!loadingProfiles && pendingProfiles.length > ITEMS_PER_PAGE && (
+                  <div className="flex justify-center items-center mt-8 space-x-4">
+                    <button
+                      onClick={() => setCurrentPagePending(p => Math.max(1, p - 1))}
+                      disabled={currentPagePending === 1}
+                      className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 hover:border-slate-300 shadow-sm transition-all cursor-pointer"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-xs text-slate-600 font-mono font-bold bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+                      Page {currentPagePending} of {Math.ceil(pendingProfiles.length / ITEMS_PER_PAGE)}
+                    </span>
+                    <button
+                      onClick={() => setCurrentPagePending(p => Math.min(Math.ceil(pendingProfiles.length / ITEMS_PER_PAGE), p + 1))}
+                      disabled={currentPagePending === Math.ceil(pendingProfiles.length / ITEMS_PER_PAGE)}
+                      className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 hover:border-slate-300 shadow-sm transition-all cursor-pointer"
+                    >
+                      Next
+                    </button>
                   </div>
                 )}
               </div>
