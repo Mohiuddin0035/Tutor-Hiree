@@ -165,7 +165,7 @@ export default function AdminDashboard() {
       setPayments((prev: any) =>
         prev.map((p: any) => (p.id === paymentId ? { ...p, status: "COMPLETED" } : p))
       );
-      loadDashboardData();
+      fetchPaymentsList();
     } catch (err) {
       console.error("Failed to approve payment", err);
     }
@@ -177,7 +177,7 @@ export default function AdminDashboard() {
       setPayments((prev: any) =>
         prev.map((p: any) => (p.id === paymentId ? { ...p, status: "REJECTED" } : p))
       );
-      loadDashboardData();
+      fetchPaymentsList();
     } catch (err) {
       console.error("Failed to reject payment", err);
     }
