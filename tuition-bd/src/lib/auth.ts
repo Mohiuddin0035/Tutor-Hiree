@@ -35,7 +35,7 @@ export const authOptions: NextAuthOptions = {
 
           // The backend returns { token, id, email, roles }
           const userRoles = data.roles || [];
-          if (!userRoles.includes(credentials.role) && !userRoles.includes("ROLE_ADMIN")) {
+          if (!userRoles.includes("ROLE_" + credentials.role) && !userRoles.includes("ROLE_ADMIN")) {
             throw new Error(`Account does not have a registered ${credentials.role} profile.`);
           }
 

@@ -36,17 +36,17 @@ public class TuitionJob {
     
     private String classLevel;
     private Integer salary;
+    private String duration;
+    private String studentGender;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(nullable = false)
-    @JsonIgnore
-    @JsonIgnoreProperties({"postedJobs", "appliedJobs", "profile", "hibernateLazyInitializer", "handler"})
+    @JsonIgnoreProperties({"postedJobs", "appliedJobs", "hibernateLazyInitializer", "handler"})
     private User parent;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn
-    @JsonIgnore
-    @JsonIgnoreProperties({"postedJobs", "appliedJobs", "profile", "hibernateLazyInitializer", "handler"})
+    @JsonIgnoreProperties({"postedJobs", "appliedJobs", "hibernateLazyInitializer", "handler"})
     private User tutor;
 
     @Builder.Default

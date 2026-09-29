@@ -57,7 +57,7 @@ function timeAgo(date: string | Date) {
   return `${days}d ago`;
 }
 
-export default function ProgressTracker({ role, jobId, jobTitle, jobSubject }: ProgressTrackerProps) {
+export default function ProgressTracker({ role, jobId, jobTitle, jobSubject, guardianId }: ProgressTrackerProps) {
   const [activeTab, setActiveTab] = useState<"updates" | "homework" | "summary">("updates");
   const [updates, setUpdates] = useState<any[]>([]);
   const [homeworks, setHomeworks] = useState<any[]>([]);

@@ -43,10 +43,18 @@ public class S3Service {
     }
 
     public String uploadFile(MultipartFile file) throws IOException {
-        if (s3Client == null) {
-            return "S3_NOT_CONFIGURED";
-        }
         String fileName = UUID.randomUUID() + "-" + file.getOriginalFilename();
+
+        if (s3Client == null) {
+            // Fallback to local storage
+            java.nio.file.Path uploadDir = java.nio.file.Paths.get("uploads");
+            if (!java.nio.file.Files.exists(uploadDir)) {
+                java.nio.file.Files.createDirectories(uploadDir);
+            }
+            java.nio.file.Path filePath = uploadDir.resolve(fileName);
+            java.nio.file.Files.copy(file.getInputStream(), filePath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            return "http://localhost:8080/uploads/" + fileName;
+        }
 
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                 .bucket(bucketName)

@@ -53,6 +53,7 @@ public class WebSecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> 
                 auth.requestMatchers("/api/auth/**").permitAll()
+                    .requestMatchers("/api/upload", "/api/upload/**").permitAll()
                     .requestMatchers("/api/test/**").permitAll()
                     .requestMatchers("/api/market-data/**").permitAll()
                     .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/jobs/**", "/api/users/**").permitAll()
@@ -67,8 +68,8 @@ public class WebSecurityConfig {
     @Bean
     public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
         org.springframework.web.cors.CorsConfiguration configuration = new org.springframework.web.cors.CorsConfiguration();
-        configuration.setAllowedOrigins(java.util.Arrays.asList("http://localhost:3000", "http://192.168.31.180:3000"));
-        configuration.setAllowedMethods(java.util.Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedOriginPatterns(java.util.Collections.singletonList("*"));
+        configuration.setAllowedMethods(java.util.Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(java.util.Arrays.asList("*"));
         configuration.setAllowCredentials(true);
         org.springframework.web.cors.UrlBasedCorsConfigurationSource source = new org.springframework.web.cors.UrlBasedCorsConfigurationSource();

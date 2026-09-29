@@ -17,7 +17,7 @@ export default function Home() {
       <Hero 
         onTriggerDemo={() => setShowIntro(true)}
       />
-      
+
       <RoleDashboardSectors />
       
       <TuitionEstimator />

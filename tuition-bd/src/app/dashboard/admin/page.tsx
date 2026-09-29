@@ -3,7 +3,7 @@ import { fetchApi } from "@/lib/api";
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import NavbarWrapper from "@/components/NavbarWrapper";
 import { motion, AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
@@ -66,6 +66,8 @@ export default function AdminDashboard() {
 
   const [jobs, setJobs] = useState<any[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(false);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [loadingPayments, setLoadingPayments] = useState(false);
   const [previewDocuments, setPreviewDocuments] = useState<{
     nid: string | null;
     idCard: string | null;
@@ -76,6 +78,7 @@ export default function AdminDashboard() {
 
   // Interaction tracking state hooks
   const [expandedMapProfileId, setExpandedMapProfileId] = useState<string | null>(null);
+  const [expandedMapJobId, setExpandedMapJobId] = useState<string | null>(null);
   const [rejectionPromptProfileId, setRejectionPromptProfileId] = useState<string | null>(null);
   const [rejectionReasonInput, setRejectionReasonInput] = useState("");
   const [customRejectionSelected, setCustomRejectionSelected] = useState(false);
@@ -116,29 +119,19 @@ export default function AdminDashboard() {
 
     try {
       if (searchType === "user") {
-        const res = await fetch(`/api/admin/search/user?registration_number=${encodeURIComponent(searchQuery.trim())}`);
-        if (res.ok) {
-          const data = await res.json();
-          setUserSearchResult(data);
-        } else if (res.status === 404) {
-          setSearchError("No user was found matching that registration number / details.");
-        } else {
-          setSearchError("An error occurred while performing user search.");
-        }
+        const data = await fetchApi(`/admin/search/user?registration_number=${encodeURIComponent(searchQuery.trim())}`);
+        setUserSearchResult(data);
       } else {
-        const res = await fetch(`/api/admin/search/tuition?tuition_id=${encodeURIComponent(searchQuery.trim())}`);
-        if (res.ok) {
-          const data = await res.json();
-          setTuitionSearchResult(data);
-        } else if (res.status === 404) {
-          setSearchError("No tuition post was found matching that ID.");
-        } else {
-          setSearchError("An error occurred while performing tuition search.");
-        }
+        const data = await fetchApi(`/admin/search/tuition?tuition_id=${encodeURIComponent(searchQuery.trim())}`);
+        setTuitionSearchResult(data);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setSearchError("Network failure or connection error during search.");
+      if (err.message && err.message.includes("404")) {
+        setSearchError(searchType === "user" ? "No user was found matching that registration number / details." : "No tuition post was found matching that ID.");
+      } else {
+        setSearchError(`An error occurred while performing ${searchType} search.`);
+      }
     } finally {
       setSearchLoading(false);
     }
@@ -155,20 +148,38 @@ export default function AdminDashboard() {
     if (!searchQuery.trim()) return;
     try {
       if (searchType === "user") {
-        const res = await fetch(`/api/admin/search/user?registration_number=${encodeURIComponent(searchQuery.trim())}`);
-        if (res.ok) {
-          const data = await res.json();
-          setUserSearchResult(data);
-        }
+        const data = await fetchApi(`/admin/search/user?registration_number=${encodeURIComponent(searchQuery.trim())}`);
+        setUserSearchResult(data);
       } else {
-        const res = await fetch(`/api/admin/search/tuition?tuition_id=${encodeURIComponent(searchQuery.trim())}`);
-        if (res.ok) {
-          const data = await res.json();
-          setTuitionSearchResult(data);
-        }
+        const data = await fetchApi(`/admin/search/tuition?tuition_id=${encodeURIComponent(searchQuery.trim())}`);
+        setTuitionSearchResult(data);
       }
     } catch (err) {
       console.error("Refetch search failed:", err);
+    }
+  };
+
+  const handleApprovePayment = async (paymentId: string) => {
+    try {
+      await fetchApi(`/payments/${paymentId}/approve`, { method: "PATCH" });
+      setPayments((prev: any) =>
+        prev.map((p: any) => (p.id === paymentId ? { ...p, status: "COMPLETED" } : p))
+      );
+      loadDashboardData();
+    } catch (err) {
+      console.error("Failed to approve payment", err);
+    }
+  };
+
+  const handleRejectPayment = async (paymentId: string) => {
+    try {
+      await fetchApi(`/payments/${paymentId}/reject`, { method: "PATCH" });
+      setPayments((prev: any) =>
+        prev.map((p: any) => (p.id === paymentId ? { ...p, status: "REJECTED" } : p))
+      );
+      loadDashboardData();
+    } catch (err) {
+      console.error("Failed to reject payment", err);
     }
   };
 
@@ -185,18 +196,21 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login");
-    } else if (session && (session.user as any).role !== "ADMIN") {
-      router.push("/dashboard");
+    } else if (session) {
+      if ((session.user as any).role !== "ADMIN") {
+        router.push("/dashboard");
+      } else if (window.location.pathname !== "/admin") {
+        router.replace("/admin");
+      }
     }
   }, [status, session, router]);
 
   // Load document verification queue
   const fetchPendingVerifications = () => {
     setLoadingProfiles(true);
-    fetch(`/api/admin/verify?t=${Date.now()}`)
-      .then((res) => res.json())
+    fetchApi(`/admin/verify?t=${Date.now()}`)
       .then((data) => {
-        setPendingProfiles(Array.isArray(data) ? data : []);
+        setPendingProfiles(Array.isArray(data) ? data.filter((p: any) => p.user?.role !== "PARENT") : []);
         setLoadingProfiles(false);
       })
       .catch((err) => {
@@ -208,8 +222,7 @@ export default function AdminDashboard() {
   // Load complete Parents & Tutors directories
   const fetchAllProfilesList = () => {
     setLoadingAllProfiles(true);
-    fetch(`/api/admin/profiles?t=${Date.now()}`)
-      .then((res) => res.json())
+    fetchApi(`/admin/profiles?t=${Date.now()}`)
       .then((data) => {
         setAllProfiles(Array.isArray(data) ? data : []);
         setLoadingAllProfiles(false);
@@ -221,21 +234,20 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    if (session && (session.user as any).role === "ADMIN") {
+    if (session) {
       fetchPendingVerifications();
     }
   }, [session]);
 
   useEffect(() => {
-    if (session && (session.user as any).role === "ADMIN" && (activeTab === "tutors" || activeTab === "parents")) {
+    if (session) {
       fetchAllProfilesList();
     }
-  }, [session, activeTab]);
+  }, [session]);
 
   const fetchBlacklist = () => {
     setLoadingBlacklist(true);
-    fetch(`/api/admin/blacklist?t=${Date.now()}`)
-      .then((res) => res.json())
+    fetchApi(`/admin/blacklist?t=${Date.now()}`)
       .then((data) => {
         setBlacklisted(Array.isArray(data) ? data : []);
         setLoadingBlacklist(false);
@@ -247,17 +259,16 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    if (session && (session.user as any).role === "ADMIN" && activeTab === "blacklist") {
+    if (session) {
       fetchBlacklist();
     }
-  }, [session, activeTab]);
+  }, [session]);
 
 
 
   const fetchJobsList = () => {
     setLoadingJobs(true);
-    fetch(`/api/admin/jobs?t=${Date.now()}`)
-      .then((res) => res.json())
+    fetchApi(`/jobs?t=${Date.now()}`)
       .then((data) => {
         setJobs(Array.isArray(data) ? data : []);
         setLoadingJobs(false);
@@ -269,10 +280,29 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    if (session && (session.user as any).role === "ADMIN" && (activeTab === "jobs" || activeTab === "documents")) {
+    if (session) {
       fetchJobsList();
     }
-  }, [session, activeTab]);
+  }, [session]);
+
+  const fetchPaymentsList = () => {
+    setLoadingPayments(true);
+    fetchApi(`/payments?t=${Date.now()}`)
+      .then((data) => {
+        setPayments(Array.isArray(data) ? data : []);
+        setLoadingPayments(false);
+      })
+      .catch((err) => {
+        console.error("Load Payments error:", err);
+        setLoadingPayments(false);
+      });
+  };
+
+  useEffect(() => {
+    if (session) {
+      fetchPaymentsList();
+    }
+  }, [session]);
 
   const handleAssignTutor = async (jobId: string, tutorId: string) => {
     if (!confirm("Are you sure you want to manually assign this tutor to this job (Pay Later term)?")) return;
@@ -340,7 +370,7 @@ export default function AdminDashboard() {
   const handleDeleteJob = async (jobId: string) => {
     if (!confirm("Are you sure you want to delete this tuition post? This cannot be undone.")) return;
     try {
-      const res = await fetch(`/api/admin/jobs?jobId=${jobId}`, {
+      const res = await fetchApi(`/jobs/${jobId}`, {
         method: "DELETE"
       });
       if (res.ok) {
@@ -359,9 +389,9 @@ export default function AdminDashboard() {
 
   const handleApproveJob = async (jobId: string, requirement: string) => {
     try {
-      await fetchApi("/admin/jobs", {
-        method: "PATCH",
-        body: JSON.stringify({ jobId, action: "approve", tutorRequirement: requirement }),
+      await fetchApi(`/jobs/${jobId}`, {
+        method: "PUT",
+        body: JSON.stringify({ status: "OPEN", tutorRequirement: requirement }),
       });
       alert("✓ Tuition job approved and published live!");
       fetchAllProfilesList();
@@ -572,7 +602,7 @@ export default function AdminDashboard() {
                       </div>
 
                       <div className="space-y-1">
-                        <h3 className="text-base font-bold text-white flex flex-wrap items-center gap-2">
+                        <h3 className="text-xs font-bold text-white flex flex-wrap items-center gap-2">
                           {profile.user?.name || "Unknown Operator"}
                           {profile.verificationStatus === "VERIFIED" && (
                             <span className="text-[9px] bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/20 font-mono uppercase tracking-wider font-bold">
@@ -710,50 +740,99 @@ export default function AdminDashboard() {
                     </div>
                   </div>
 
-                  {role === "PARENT" && profile.user?.jobs && profile.user.jobs.length > 0 && (
-                    <div className="p-4 bg-slate-900/30 border border-slate-900 rounded-2xl space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-mono text-indigo-400 uppercase tracking-wider font-bold">
-                          Active Tuition Posts ({profile.user.jobs.length})
-                        </span>
-                      </div>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs border-collapse">
-                          <thead>
-                            <tr className="border-b border-slate-800 text-slate-500 font-mono uppercase tracking-wider text-[9px]">
-                              <th className="py-2 px-3">ID</th>
-                              <th className="py-2 px-3">Class/Subject</th>
-                              <th className="py-2 px-3">Salary</th>
-                              <th className="py-2 px-3 text-right">Action</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {profile.user.jobs.map((job: any) => (
-                              <tr key={job.id} className="border-b border-slate-900/60 hover:bg-slate-900/10">
-                                <td className="py-2 px-3 font-mono text-slate-400">
-                                  TCT-{String(job.jobSeq).padStart(3, '0')}
-                                </td>
-                                <td className="py-2 px-3 text-slate-200">
-                                  {job.classLevel} - {job.subject}
-                                </td>
-                                <td className="py-2 px-3 text-pink-400 font-mono font-bold">
-                                  ৳ {job.salary} BDT
-                                </td>
-                                <td className="py-2 px-3 text-right">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteJob(job.id)}
-                                    className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-2 py-1 rounded-lg transition duration-200 cursor-pointer text-[10px] font-bold font-sans uppercase"
-                                  >
-                                    Delete Post
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
+                  {role === "PARENT" && (
+                    (() => {
+                      const parentJobs = jobs.filter((j: any) => j.parent?.id === profile.user?.id);
+                      if (parentJobs.length === 0) return null;
+                      return (
+                        <div className="p-4 bg-slate-900/30 border border-slate-900 rounded-2xl space-y-3 mt-4">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-mono text-indigo-400 uppercase tracking-wider font-bold">
+                              Active Tuition Posts ({parentJobs.length})
+                            </span>
+                          </div>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs border-collapse">
+                              <thead>
+                                <tr className="border-b border-slate-800 text-slate-500 font-mono uppercase tracking-wider text-[9px]">
+                                  <th className="py-2 px-3">ID</th>
+                                  <th className="py-2 px-3">Class/Subject</th>
+                                  <th className="py-2 px-3">Salary</th>
+                                  <th className="py-2 px-3 text-right">Action</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {parentJobs.map((job: any) => (
+                                  <React.Fragment key={job.id}>
+                                    <tr className="border-b border-slate-900/60 hover:bg-slate-900/10 transition-colors">
+                                      <td className="py-3 px-3 font-mono text-slate-400">
+                                        TCT-{String(job.jobSeq).padStart(3, '0')}
+                                      </td>
+                                      <td className="py-3 px-3 text-slate-200 font-medium">
+                                        {job.classLevel} - {job.subject}
+                                      </td>
+                                      <td className="py-3 px-3 text-pink-400 font-mono font-bold">
+                                        ৳ {job.salary}
+                                      </td>
+                                      <td className="py-3 px-3 text-right">
+                                        <div className="flex items-center justify-end space-x-2">
+                                          <button
+                                            type="button"
+                                            onClick={() => setExpandedMapJobId(expandedMapJobId === job.id ? null : job.id)}
+                                            className="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 px-3 py-1.5 rounded-lg transition duration-200 cursor-pointer text-[10px] font-bold font-sans uppercase shadow-[0_0_8px_rgba(var(--theme-rgb),0.05)]"
+                                          >
+                                            {expandedMapJobId === job.id ? "Hide Map" : "View Map"}
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleDeleteJob(job.id)}
+                                            className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-3 py-1.5 rounded-lg transition duration-200 cursor-pointer text-[10px] font-bold font-sans uppercase shadow-[0_0_8px_rgba(var(--theme-rgb),0.05)]"
+                                          >
+                                            Delete Post
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                    <AnimatePresence>
+                                      {expandedMapJobId === job.id && (
+                                        <motion.tr
+                                          initial={{ opacity: 0, height: 0 }}
+                                          animate={{ opacity: 1, height: "auto" }}
+                                          exit={{ opacity: 0, height: 0 }}
+                                          className="overflow-hidden bg-slate-950/50"
+                                        >
+                                          <td colSpan={4} className="p-4 border-b border-slate-900/60">
+                                            {job.latitude !== null && job.longitude !== null ? (
+                                              <div className="bg-slate-950 p-4 border border-slate-900 rounded-2xl space-y-3">
+                                                <div className="flex items-center justify-between text-[10px] font-mono text-slate-500 uppercase tracking-wider">
+                                                  <span>Actual Location: {job.latitude?.toFixed(5)}, {job.longitude?.toFixed(5)}</span>
+                                                  <span className="text-emerald-400 font-bold">Approx Location: {(job.approxLatitude || job.latitude)?.toFixed(5)}, {(job.approxLongitude || job.longitude)?.toFixed(5)}</span>
+                                                </div>
+                                                <AdminLocationMismatchMap
+                                                  lat={job.latitude || 23.8103}
+                                                  lng={job.longitude || 90.4125}
+                                                  actualLat={job.approxLatitude || job.latitude || 23.8103}
+                                                  actualLng={job.approxLongitude || job.longitude || 90.4125}
+                                                  name={job.title || "Tuition Post"}
+                                                />
+                                              </div>
+                                            ) : (
+                                              <div className="text-center p-6 text-slate-500 font-mono text-xs border border-dashed border-slate-800 rounded-2xl">
+                                                No GPS coordinates registered for this post.
+                                              </div>
+                                            )}
+                                          </td>
+                                        </motion.tr>
+                                      )}
+                                    </AnimatePresence>
+                                  </React.Fragment>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+                    })()
                   )}
 
                   {/* Expandable Location Auditing Leaflet widgets */}
@@ -942,14 +1021,14 @@ export default function AdminDashboard() {
         {!(userSearchResult || tuitionSearchResult) ? (
           <>
             {/* Dynamic Glassmorphism Navigation Tabs */}
-            <div className="flex border-b border-slate-800/80 pb-px overflow-x-auto whitespace-nowrap scrollbar-none">
+            <div className="flex flex-wrap gap-2 border-b border-slate-800/80 pb-4">
           <button
             type="button"
             onClick={() => setActiveTab("documents")}
-            className={`px-6 py-3.5 font-bold font-mono text-xs uppercase tracking-wider transition-all duration-300 border-b-2 cursor-pointer ${
+            className={`px-4 py-2.5 rounded-xl font-bold font-mono text-[10px] sm:text-xs uppercase tracking-wider transition-all duration-300 cursor-pointer flex-grow sm:flex-grow-0 text-center ${
               activeTab === "documents"
-                ? "text-emerald-400 border-emerald-500 bg-emerald-500/5 shadow-[inset_0_-2px_0_rgba(var(--theme-rgb),1)]"
-                : "text-slate-400 border-transparent hover:text-slate-200"
+                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+                : "bg-slate-900/50 text-slate-400 border border-slate-800 hover:bg-slate-800 hover:text-slate-200"
             }`}
           >
             📋 Task Inbox ({pendingProfiles.length + jobs.filter((j) => j.status === "PENDING").length})
@@ -957,10 +1036,10 @@ export default function AdminDashboard() {
           <button
             type="button"
             onClick={() => setActiveTab("tutors")}
-            className={`px-6 py-3.5 font-bold font-mono text-xs uppercase tracking-wider transition-all duration-300 border-b-2 cursor-pointer ${
+            className={`px-4 py-2.5 rounded-xl font-bold font-mono text-[10px] sm:text-xs uppercase tracking-wider transition-all duration-300 cursor-pointer flex-grow sm:flex-grow-0 text-center ${
               activeTab === "tutors"
-                ? "text-emerald-400 border-emerald-500 bg-emerald-500/5 shadow-[inset_0_-2px_0_rgba(var(--theme-rgb),1)]"
-                : "text-slate-400 border-transparent hover:text-slate-200"
+                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+                : "bg-slate-900/50 text-slate-400 border border-slate-800 hover:bg-slate-800 hover:text-slate-200"
             }`}
           >
             🎓 Tutor Directory ({allProfiles.length > 0 ? allProfiles.filter((p) => p.user?.role === "TUTOR").length : 0})
@@ -968,10 +1047,10 @@ export default function AdminDashboard() {
           <button
             type="button"
             onClick={() => setActiveTab("parents")}
-            className={`px-6 py-3.5 font-bold font-mono text-xs uppercase tracking-wider transition-all duration-300 border-b-2 cursor-pointer ${
+            className={`px-4 py-2.5 rounded-xl font-bold font-mono text-[10px] sm:text-xs uppercase tracking-wider transition-all duration-300 cursor-pointer flex-grow sm:flex-grow-0 text-center ${
               activeTab === "parents"
-                ? "text-emerald-400 border-emerald-500 bg-emerald-500/5 shadow-[inset_0_-2px_0_rgba(var(--theme-rgb),1)]"
-                : "text-slate-400 border-transparent hover:text-slate-200"
+                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+                : "bg-slate-900/50 text-slate-400 border border-slate-800 hover:bg-slate-800 hover:text-slate-200"
             }`}
           >
             👥 Parent Directory ({allProfiles.length > 0 ? allProfiles.filter((p) => p.user?.role === "PARENT").length : 0})
@@ -979,10 +1058,10 @@ export default function AdminDashboard() {
           <button
             type="button"
             onClick={() => setActiveTab("blacklist")}
-            className={`px-6 py-3.5 font-bold font-mono text-xs uppercase tracking-wider transition-all duration-300 border-b-2 cursor-pointer ${
+            className={`px-4 py-2.5 rounded-xl font-bold font-mono text-[10px] sm:text-xs uppercase tracking-wider transition-all duration-300 cursor-pointer flex-grow sm:flex-grow-0 text-center ${
               activeTab === "blacklist"
-                ? "text-red-400 border-red-500 bg-red-500/5 shadow-[inset_0_-2px_0_rgba(239,68,68,1)]"
-                : "text-slate-400 border-transparent hover:text-slate-200"
+                ? "bg-red-500/10 text-red-400 border border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.1)]"
+                : "bg-slate-900/50 text-slate-400 border border-slate-800 hover:bg-slate-800 hover:text-slate-200"
             }`}
           >
             🚫 Blacklist Manager
@@ -991,13 +1070,42 @@ export default function AdminDashboard() {
           <button
             type="button"
             onClick={() => setActiveTab("jobs")}
-            className={`px-6 py-3.5 font-bold font-mono text-xs uppercase tracking-wider transition-all duration-300 border-b-2 cursor-pointer ${
+            className={`px-4 py-2.5 rounded-xl font-bold font-mono text-[10px] sm:text-xs uppercase tracking-wider transition-all duration-300 cursor-pointer flex-grow sm:flex-grow-0 text-center ${
               activeTab === "jobs"
-                ? "text-emerald-400 border-emerald-500 bg-emerald-500/5 shadow-[inset_0_-2px_0_rgba(var(--theme-rgb),1)]"
-                : "text-slate-400 border-transparent hover:text-slate-200"
+                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+                : "bg-slate-900/50 text-slate-400 border border-slate-800 hover:bg-slate-800 hover:text-slate-200"
             }`}
           >
-            📋 Tuition Jobs ({jobs.filter((j) => j.status === "OPEN" && j.tutorId).length})
+            📋 Tuition Jobs ({jobs.filter((j) => j.status !== "CONFIRMED").length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("confirmedJobs")}
+            className={`px-4 py-2.5 rounded-xl font-bold font-mono text-[10px] sm:text-xs uppercase tracking-wider transition-all duration-300 cursor-pointer flex-grow sm:flex-grow-0 text-center ${
+              activeTab === "confirmedJobs"
+                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+                : "bg-slate-900/50 text-slate-400 border border-slate-800 hover:bg-slate-800 hover:text-slate-200"
+            }`}
+          >
+            ✅ Confirmed Jobs ({jobs.filter((j) => j.status === "CONFIRMED").length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("payments")}
+            className={`px-4 py-2.5 rounded-xl font-bold font-mono text-[10px] sm:text-xs uppercase tracking-wider transition-all duration-300 cursor-pointer flex-grow sm:flex-grow-0 text-center ${
+              activeTab === "payments"
+                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+                : "bg-slate-900/50 text-slate-400 border border-slate-800 hover:bg-slate-800 hover:text-slate-200"
+            }`}
+          >
+            <div className="flex items-center gap-2 justify-center">
+              <span>💰 Finance Manager</span>
+              {payments.filter((p) => p.status === "PENDING").length > 0 && (
+                <span className="px-1.5 py-0.5 rounded border font-extrabold text-[9px] bg-amber-500/10 text-amber-500 border-amber-500/30 dark:bg-amber-500/20 dark:text-amber-400">
+                  {payments.filter((p) => p.status === "PENDING").length} PENDING
+                </span>
+              )}
+            </div>
           </button>
         </div>
 
@@ -1022,9 +1130,9 @@ export default function AdminDashboard() {
                 </div>
                 <div className="h-px bg-slate-800/80" />
 
-                {jobs.filter((j) => j.status === "PENDING").length === 0 ? (
+                {jobs.filter((j) => (j.status || "PENDING") === "PENDING").length === 0 ? (
                   <div className="py-8 text-center bg-slate-900/10 border border-slate-900 rounded-xl space-y-2">
-                    <span className="text-2xl">✨</span>
+
                     <h3 className="text-xs font-bold text-slate-300">No Pending Tuition Posts</h3>
                     <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
                       All parent tuition posts are approved and live on the map!
@@ -1033,7 +1141,7 @@ export default function AdminDashboard() {
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {jobs
-                      .filter((j) => j.status === "PENDING")
+                      .filter((j) => (j.status || "PENDING") === "PENDING")
                       .map((job) => {
                         const currentReq = editingRequirements[job.id] !== undefined 
                           ? editingRequirements[job.id] 
@@ -1121,7 +1229,7 @@ export default function AdminDashboard() {
                   </div>
                 ) : pendingProfiles.length === 0 ? (
                   <div className="py-12 text-center bg-slate-900/10 border border-slate-900 rounded-xl space-y-2">
-                    <span className="text-3xl">✨</span>
+
                     <h3 className="text-sm font-bold text-slate-300">Clean Inspection Registry</h3>
                     <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
                       All educator credential uploads have been processed! No pending verification requests in the queue.
@@ -1145,7 +1253,7 @@ export default function AdminDashboard() {
                           </div>
 
                           <div className="space-y-1">
-                            <h3 className="text-base font-bold text-white leading-tight">{profile.user?.name || "Anonymous Educator"}</h3>
+                            <h3 className="text-xs font-bold text-white leading-tight">{profile.user?.name || "Anonymous Educator"}</h3>
                             <p className="text-xs text-slate-400 font-mono">{profile.user?.email}</p>
                             <p className="text-xs text-slate-500 font-sans">📞 {profile.phone || "No phone registered"}</p>
                           </div>
@@ -1295,7 +1403,7 @@ export default function AdminDashboard() {
                       >
                         <div className="flex justify-between items-start">
                           <div className="space-y-1">
-                            <h3 className="text-base font-bold text-white flex items-center gap-2">
+                            <h3 className="text-xs font-bold text-white flex items-center gap-2">
                               {item.phone}
                               <span className="text-[9px] bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded border border-red-500/20 font-mono uppercase tracking-wider font-bold">
                                 Banned
@@ -1355,13 +1463,13 @@ export default function AdminDashboard() {
                     <div className="animate-spin h-8 w-8 border-2 border-emerald-500 border-t-transparent rounded-full" />
                     <span className="text-xs text-slate-400 font-mono">Fetching job listings...</span>
                   </div>
-                ) : jobs.length === 0 ? (
+                ) : jobs.filter((j) => j.status !== "CONFIRMED").length === 0 ? (
                   <div className="py-12 text-center text-slate-500 font-mono text-sm">
-                    No tuition jobs have been posted on the platform yet.
+                    No active tuition jobs found.
                   </div>
                 ) : (
                   <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
-                    {jobs.map((job) => {
+                    {jobs.filter((j) => j.status !== "CONFIRMED").map((job) => {
                       const isPendingManual = job.status === "OPEN" && job.tutorId;
                       return (
                         <div
@@ -1375,7 +1483,7 @@ export default function AdminDashboard() {
                               <span className="text-[10px] font-mono px-2 py-0.5 rounded border bg-slate-900 text-slate-400 border-slate-800 font-extrabold uppercase">
                                 TCT-{String(job.jobSeq).padStart(3, '0')}
                               </span>
-                              <span className="text-[9px] font-mono px-2 py-0.5 rounded-md border font-extrabold uppercase tracking-wider bg-black/40 text-pink-400 border-pink-500/20">
+                              <span className="text-[9px] font-mono px-2 py-0.5 rounded-md border font-extrabold uppercase tracking-wider bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20">
                                 ৳ {job.salary} BDT
                               </span>
                               <span className={`text-[9px] font-mono px-2 py-0.5 rounded-md border font-extrabold uppercase tracking-wider ${
@@ -1394,7 +1502,7 @@ export default function AdminDashboard() {
                               )}
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-6 text-xs bg-black/30 border border-slate-900 rounded-xl p-3.5">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-6 text-xs pt-3 mt-3 border-t border-slate-800/60">
                               <div>
                                 <span className="text-[10px] text-slate-500 font-mono uppercase block">Tuition Job Title</span>
                                 <span className="text-slate-200 font-semibold">{job.title}</span>
@@ -1565,6 +1673,220 @@ export default function AdminDashboard() {
                         </div>
                       );
                     })}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === "confirmedJobs" && (
+            <motion.div
+              key="confirmedJobsTab"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-6"
+            >
+              <div className="bg-slate-900/50 border border-slate-800/80 p-6 md:p-8 rounded-3xl space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold font-heading text-emerald-400">Confirmed Jobs Directory</h2>
+                    <p className="text-xs text-slate-500 mt-1 font-mono uppercase tracking-wider">
+                      View all jobs that have been confirmed and unlocked.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="h-px bg-slate-800/80" />
+
+                {loadingJobs ? (
+                  <div className="py-12 flex flex-col items-center justify-center space-y-3">
+                    <div className="animate-spin h-8 w-8 border-2 border-emerald-500 border-t-transparent rounded-full" />
+                    <span className="text-xs text-slate-400 font-mono">Fetching job listings...</span>
+                  </div>
+                ) : jobs.filter(j => j.status === "CONFIRMED").length === 0 ? (
+                  <div className="py-12 text-center text-slate-500 font-mono text-sm">
+                    No confirmed tuition jobs found.
+                  </div>
+                ) : (
+                  <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+                    {jobs.filter(j => j.status === "CONFIRMED").map((job) => {
+                      return (
+                        <div
+                          key={job.id}
+                          className={`bg-slate-950/60 border p-5 rounded-2xl flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between transition-all duration-300 border-slate-850 hover:border-slate-800`}
+                        >
+                          <div className="space-y-3 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-[10px] font-mono px-2 py-0.5 rounded border bg-slate-900 text-slate-400 border-slate-800 font-extrabold uppercase">
+                                TCT-{String(job.jobSeq).padStart(3, '0')}
+                              </span>
+                              <span className="text-[9px] font-mono px-2 py-0.5 rounded-md border font-extrabold uppercase tracking-wider bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20">
+                                ৳ {job.salary} BDT
+                              </span>
+                              <span className="text-[9px] font-mono px-2 py-0.5 rounded-md border font-extrabold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                                {job.status}
+                              </span>
+                              {job.locationUnlocked && (
+                                <span className="text-[9px] font-mono px-2 py-0.5 rounded-md border font-extrabold uppercase tracking-wider bg-emerald-500 text-slate-950 border-emerald-500">
+                                  Unlocked
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-6 text-xs pt-3 mt-3 border-t border-slate-800/60">
+                              <div>
+                                <span className="text-[10px] text-slate-500 font-mono uppercase block">Tuition Job Title</span>
+                                <span className="text-slate-200 font-semibold">{job.title}</span>
+                                <span className="text-slate-400 text-[10px] block">{job.subject} - {job.classLevel}</span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-slate-500 font-mono uppercase block">Parent (Creator)</span>
+                                <span className="text-slate-200 font-semibold">{job.parent?.name || "N/A"}</span>
+                                <span className="text-slate-400 text-[10px] font-mono block">Phone: {job.parent?.profile?.phone || "N/A"}</span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-slate-500 font-mono uppercase block">Tutor Assignment</span>
+                                {job.tutor ? (
+                                  <div>
+                                    <span className="text-emerald-400 font-semibold font-mono">
+                                      TC-{String(job.tutor.profile?.tutorSeq || 1).padStart(3, '0')} - {job.tutor.name}
+                                    </span>
+                                    <span className="text-slate-400 text-[10px] font-mono block">Phone: {job.tutor.profile?.phone || "N/A"}</span>
+                                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                      {job.commissionPaid ? (
+                                        <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider">
+                                          ✓ Commission Paid (৳{job.commissionAmount || Math.ceil(job.salary * 0.10)})
+                                        </span>
+                                      ) : (
+                                        <span className="text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider">
+                                          Pending Commission
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-500 italic">No tutor assigned</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === "payments" && (
+            <motion.div
+              key="paymentsTab"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-6"
+            >
+              <div className="glass-card rounded-2xl p-6 md:p-8 border border-slate-800 space-y-6">
+                <div>
+                  <h2 className="text-xl font-bold font-heading text-emerald-400">Finance Manager</h2>
+                  <p className="text-xs text-slate-500 mt-1 font-mono uppercase tracking-wider">
+                    Overview of all payments, commissions, and refunds across the platform.
+                  </p>
+                </div>
+                <div className="h-px bg-slate-800/80" />
+
+                {(() => {
+                  const pendingAmount = payments.filter(p => p.status === 'PENDING').reduce((acc, p) => acc + (p.amount || 0), 0);
+                  const receivedAmount = payments.filter(p => p.status === 'COMPLETED').reduce((acc, p) => acc + (p.amount || 0), 0);
+                  const refundedAmount = payments.filter(p => p.status === 'REFUNDED').reduce((acc, p) => acc + (p.amount || 0), 0);
+
+                  return (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                      <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-xl p-4 flex flex-col justify-center items-center text-center">
+                        <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Total Received</span>
+                        <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400 font-mono">৳ {receivedAmount}</span>
+                      </div>
+                      <div className="bg-amber-500/5 border border-amber-500/10 rounded-xl p-4 flex flex-col justify-center items-center text-center">
+                        <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Pending Clearance</span>
+                        <span className="text-xl font-bold text-amber-600 dark:text-amber-400 font-mono">৳ {pendingAmount}</span>
+                      </div>
+                      <div className="bg-rose-500/5 border border-rose-500/10 rounded-xl p-4 flex flex-col justify-center items-center text-center">
+                        <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Total Refunded</span>
+                        <span className="text-xl font-bold text-rose-600 dark:text-rose-400 font-mono">৳ {refundedAmount}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {loadingPayments ? (
+                  <div className="py-8 text-center text-slate-500 font-mono text-sm">Loading financial records...</div>
+                ) : payments.length === 0 ? (
+                  <div className="py-12 text-center text-slate-500 font-mono text-sm">
+                    No payment records found.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse font-sans">
+                      <thead>
+                        <tr className="border-b border-slate-800 text-slate-400 font-mono uppercase tracking-wider text-[10px]">
+                          <th className="py-3 px-4">Transaction ID</th>
+                          <th className="py-3 px-4">Type</th>
+                          <th className="py-3 px-4">Amount</th>
+                          <th className="py-3 px-4">Status</th>
+                          <th className="py-3 px-4">Date</th>
+                          <th className="py-3 px-4">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {payments.map((p: any) => (
+                          <tr key={p.id} className="border-b border-slate-900 hover:bg-slate-900/20 transition-colors">
+                            <td className="py-3 px-4 text-slate-300 font-mono">{p.trxId || "N/A"}</td>
+                            <td className="py-3 px-4">
+                              <span className="bg-slate-900 text-slate-300 px-2 py-1 rounded border border-slate-800 font-mono text-[10px] uppercase">
+                                {p.type || "PAYMENT"}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-emerald-400 font-bold font-mono">
+                              ৳ {p.amount}
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                                p.status === "COMPLETED" || p.status === "SUCCESS" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
+                                p.status === "PENDING" ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" :
+                                "bg-slate-800 text-slate-400 border border-slate-700"
+                              }`}>
+                                {p.status}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-slate-500 font-mono">
+                              {new Date(p.createdAt).toLocaleDateString()}
+                            </td>
+                            <td className="py-3 px-4">
+                              {p.status === "PENDING" && (
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => handleApprovePayment(p.id)}
+                                    className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-3 py-1 rounded text-[10px] font-mono font-bold uppercase cursor-pointer transition-colors"
+                                  >
+                                    Approve
+                                  </button>
+                                  <button
+                                    onClick={() => handleRejectPayment(p.id)}
+                                    className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 px-3 py-1 rounded text-[10px] font-mono font-bold uppercase cursor-pointer transition-colors"
+                                  >
+                                    Reject
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
@@ -2274,17 +2596,49 @@ export default function AdminDashboard() {
                         className="w-full bg-slate-950 border border-slate-800 text-slate-100 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition duration-200"
                       />
                     </div>
-                    <div className="space-y-1">
-                      <label className="block text-[10px] font-mono uppercase tracking-wider text-slate-400 font-semibold">Biography Details</label>
-                      <textarea
-                        value={editForm.bio}
-                        onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
-                        rows={2}
-                        className="w-full bg-slate-950 border border-slate-800 text-slate-100 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition duration-200"
-                      />
-                    </div>
-                  </>
-                )}
+                      <div className="space-y-1">
+                        <label className="block text-[10px] font-mono uppercase tracking-wider text-slate-400 font-semibold">Biography Details</label>
+                        <textarea
+                          value={editForm.bio}
+                          onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
+                          rows={2}
+                          className="w-full bg-slate-950 border border-slate-800 text-slate-100 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition duration-200"
+                        />
+                      </div>
+                      
+                      {(editingProfile.nidImageUrl || editingProfile.universityIdImageUrl || editingProfile.selfieImageUrl) && (
+                        <div className="pt-2">
+                          <h4 className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-semibold mb-2">Uploaded Identity Documents</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            {editingProfile.nidImageUrl && (
+                              <a href={editingProfile.nidImageUrl} target="_blank" rel="noreferrer" className="block group w-full aspect-[4/3] bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden hover:border-emerald-500 transition-colors relative">
+                                <img src={editingProfile.nidImageUrl} alt="NID" className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent flex items-end p-2">
+                                  <span className="text-[9px] font-mono text-white font-bold uppercase tracking-wider">NID / Passport</span>
+                                </div>
+                              </a>
+                            )}
+                            {editingProfile.universityIdImageUrl && (
+                              <a href={editingProfile.universityIdImageUrl} target="_blank" rel="noreferrer" className="block group w-full aspect-[4/3] bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden hover:border-emerald-500 transition-colors relative">
+                                <img src={editingProfile.universityIdImageUrl} alt="Student ID" className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent flex items-end p-2">
+                                  <span className="text-[9px] font-mono text-white font-bold uppercase tracking-wider">Student ID</span>
+                                </div>
+                              </a>
+                            )}
+                            {editingProfile.selfieImageUrl && (
+                              <a href={editingProfile.selfieImageUrl} target="_blank" rel="noreferrer" className="block group w-full aspect-[4/3] bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden hover:border-emerald-500 transition-colors relative">
+                                <img src={editingProfile.selfieImageUrl} alt="Selfie" className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent flex items-end p-2">
+                                  <span className="text-[9px] font-mono text-white font-bold uppercase tracking-wider">Selfie Match</span>
+                                </div>
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
 
                 {/* Edit status locks */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -52,11 +52,6 @@ public class ReviewController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @PostMapping
-    public ResponseEntity<?> save(@RequestBody ReviewRequest request) {
-        return ResponseEntity.ok("Saved");
-    }
-
     @PutMapping("/{id}")
     public ResponseEntity<?> update(@PathVariable String id, @RequestBody ReviewRequest request) {
         return ResponseEntity.ok("Updated");

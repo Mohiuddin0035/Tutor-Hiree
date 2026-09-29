@@ -22,9 +22,9 @@ public class Profile {
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
-    @OneToOne(fetch = FetchType.LAZY)
+    @OneToOne(fetch = FetchType.EAGER)
     @JoinColumn(referencedColumnName = "id", nullable = false, unique = true)
-    @JsonIgnore
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties("profile")
     private User user;
 
     @Column(unique = true, insertable = false, updatable = false, columnDefinition = "serial")
