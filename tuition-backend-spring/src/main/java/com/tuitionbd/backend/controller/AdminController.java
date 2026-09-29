@@ -52,6 +52,22 @@ public class AdminController {
         return ResponseEntity.ok(pendingProfiles);
     }
 
+    @PatchMapping("/verify")
+    public ResponseEntity<?> updateVerify(@RequestBody java.util.Map<String, String> request) {
+        String profileId = request.get("profileId");
+        String status = request.get("status");
+        String rejectionReason = request.get("rejectionReason");
+
+        return profileRepository.findById(profileId).map(profile -> {
+            profile.setVerificationStatus(status);
+            if ("REJECTED".equals(status)) {
+                profile.setRejectionReason(rejectionReason);
+            }
+            profileRepository.save(profile);
+            return ResponseEntity.ok("Verification status updated successfully");
+        }).orElse(ResponseEntity.badRequest().body("Profile not found"));
+    }
+
     @GetMapping("/profiles")
     public ResponseEntity<?> getProfiles() {
         return ResponseEntity.ok(profileRepository.findAll());

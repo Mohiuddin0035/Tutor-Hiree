@@ -711,7 +711,7 @@ export default function AdminDashboard() {
                           )}
                           <button
                             type="button"
-                            onClick={() => handleDeleteUser(profile.userId)}
+                            onClick={() => handleDeleteUser(profile.user?.id)}
                             className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-3 py-2 rounded-xl transition duration-200 cursor-pointer text-xs font-bold font-mono uppercase"
                             title="Completely remove tutor account"
                           >
@@ -724,7 +724,7 @@ export default function AdminDashboard() {
                         <>
                           <button
                             type="button"
-                            onClick={() => handleDeleteUser(profile.userId)}
+                            onClick={() => handleDeleteUser(profile.user?.id)}
                             className="bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 px-3 py-2 rounded-xl transition duration-200 cursor-pointer text-xs font-bold font-mono uppercase"
                             title="Delete Parent Account"
                           >
@@ -732,7 +732,7 @@ export default function AdminDashboard() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleBanUser(profile.userId)}
+                            onClick={() => handleBanUser(profile.user?.id)}
                             className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-3 py-2 rounded-xl transition duration-200 cursor-pointer text-xs font-bold font-mono uppercase"
                             title="Ban and Blacklist Parent Account"
                           >
