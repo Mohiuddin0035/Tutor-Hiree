@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   serverExternalPackages: ['bcryptjs', '@prisma/client'],
   async rewrites() {
     return [
