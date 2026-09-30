@@ -406,6 +406,25 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleResolveGps = async (profileId: string) => {
+    if (!window.confirm("Are you sure you want to resolve GPS for this tutor by syncing their provided location to physical GPS?")) return;
+    try {
+      await fetchApi("/admin/profiles", {
+        method: "PATCH",
+        body: JSON.stringify({
+          profileId,
+          resolveGps: true,
+        }),
+      });
+      alert("✓ GPS resolved successfully. Coordinates synced.");
+      fetchAllProfilesList();
+      handleReFetchSearch();
+    } catch (err) {
+      console.error("Resolve GPS error:", err);
+      alert("Failed to resolve GPS.");
+    }
+  };
+
   const handleToggleTutorActive = async (profileId: string, isActive: boolean) => {
     try {
       await fetchApi("/admin/profiles", {
@@ -660,9 +679,14 @@ export default function AdminDashboard() {
                           <strong className="font-bold">{dist.toFixed(2)} km</strong>
                         </div>
                       ) : (
-                        <div className="bg-slate-900 border border-slate-800 px-3 py-2 rounded-xl font-mono text-xs text-slate-500">
+                        <button
+                          type="button"
+                          onClick={() => handleResolveGps(profile.id)}
+                          className="bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/50 px-3 py-2 rounded-xl font-mono text-xs text-slate-500 hover:text-emerald-400 cursor-pointer transition-colors"
+                          title="Click to resolve by syncing provided location to physical GPS"
+                        >
                           GPS Unresolved
-                        </div>
+                        </button>
                       )}
 
                       {profile.latitude !== null && profile.actualLatitude !== null && (

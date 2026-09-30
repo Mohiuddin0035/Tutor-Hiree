@@ -78,6 +78,7 @@ public class AdminController {
         String profileId = (String) request.get("profileId");
         Boolean isActive = (Boolean) request.get("is_active");
         Boolean reactivationRequested = (Boolean) request.get("reactivationRequested");
+        Boolean resolveGps = (Boolean) request.get("resolveGps");
 
         return profileRepository.findById(profileId).map(profile -> {
             if (isActive != null) {
@@ -85,6 +86,10 @@ public class AdminController {
             }
             if (reactivationRequested != null) {
                 profile.setReactivationRequested(reactivationRequested);
+            }
+            if (Boolean.TRUE.equals(resolveGps) && profile.getLatitude() != null && profile.getLongitude() != null) {
+                profile.setActualLatitude(profile.getLatitude());
+                profile.setActualLongitude(profile.getLongitude());
             }
             profileRepository.save(profile);
             return ResponseEntity.ok("Profile status updated successfully");

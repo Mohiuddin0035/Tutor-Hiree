@@ -1540,8 +1540,6 @@ export default function Dashboard() {
                         studentGender: formData.get("studentGender"),
                         latitude: actualLatitude || latitude,
                         longitude: actualLongitude || longitude,
-                        approxLatitude: latitude,
-                        approxLongitude: longitude,
                       };
 
                       try {

@@ -22,6 +22,8 @@ public class ProfileRequest {
     private String selfieImageUrl;
     private String gender;
     private String preferableTime;
+    
+    @com.fasterxml.jackson.annotation.JsonProperty("is_active")
     private Boolean isActive;
     private Boolean reactivationRequested;
     private String studentClass;

@@ -200,8 +200,42 @@ public class ProfileController {
     }
 
     @PostMapping
-    public ResponseEntity<?> save(@RequestBody ProfileRequest request) {
-        return ResponseEntity.ok("Saved");
+    public ResponseEntity<?> save(org.springframework.security.core.Authentication authentication, @RequestBody ProfileRequest request) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).build();
+        }
+        com.tuitionbd.backend.security.services.UserDetailsImpl userDetails = 
+            (com.tuitionbd.backend.security.services.UserDetailsImpl) authentication.getPrincipal();
+            
+        Optional<Profile> profileOpt = profileRepository.findByUserId(userDetails.getId());
+        Profile profile = profileOpt.orElseGet(() -> {
+            Profile p = new Profile();
+            userRepository.findById(userDetails.getId()).ifPresent(p::setUser);
+            return p;
+        });
+        
+        if (request.getPhone() != null) profile.setPhone(request.getPhone());
+        if (request.getAddress() != null) profile.setAddress(request.getAddress());
+        if (request.getBio() != null) profile.setBio(request.getBio());
+        if (request.getEducation() != null) profile.setEducation(request.getEducation());
+        if (request.getGender() != null) profile.setGender(request.getGender());
+        if (request.getPreferableTime() != null) profile.setPreferableTime(request.getPreferableTime());
+        // The frontend sends "is_active", but Jackson maps it to isActive in ProfileRequest (if @JsonProperty is configured there) or we should just check the Map if it's sent.
+        // Wait, ProfileRequest doesn't have @JsonProperty("is_active"). Let's check for both.
+        if (request.getIsActive() != null) profile.setIsActive(request.getIsActive());
+        
+        if (request.getLatitude() != null && request.getLongitude() != null) {
+            profile.setLatitude(request.getLatitude());
+            profile.setLongitude(request.getLongitude());
+            // Create a small random jitter for approx location if this is a tutor
+            double jitterLat = (Math.random() - 0.5) * 0.005;
+            double jitterLng = (Math.random() - 0.5) * 0.005;
+            profile.setApproxLatitude(request.getLatitude() + jitterLat);
+            profile.setApproxLongitude(request.getLongitude() + jitterLng);
+        }
+        
+        profileRepository.save(profile);
+        return ResponseEntity.ok("Profile updated successfully");
     }
 
     @PutMapping("/{id}")

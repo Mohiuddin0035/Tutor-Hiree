@@ -297,8 +297,8 @@ export default function MapComponent({
               return {
                 id: u.id,
                 name: u.name,
-                approxLat: u.profile.approxLatitude || 23.734,
-                approxLng: u.profile.approxLongitude || 90.3928,
+                approxLat: u.profile.approxLatitude || (u.profile.latitude ? u.profile.latitude + (Math.random() * 0.005 - 0.0025) : 23.734 + (Math.random() * 0.005 - 0.0025)),
+                approxLng: u.profile.approxLongitude || (u.profile.longitude ? u.profile.longitude + (Math.random() * 0.005 - 0.0025) : 90.3928 + (Math.random() * 0.005 - 0.0025)),
                 verified: u.profile.verificationStatus === "VERIFIED",
                 subject: u.profile.bio || "Various Subjects",
                 education: u.profile.education || "Dhaka University",
