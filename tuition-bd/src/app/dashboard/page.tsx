@@ -1209,92 +1209,6 @@ export default function Dashboard() {
 
                     return (
                       <>
-                        <div className="mt-8 border-t border-slate-800/80 pt-8 space-y-6">
-                          <div>
-                            <h2 className="text-xl font-bold font-heading text-white">Direct Tuition Requests</h2>
-                            <p className="text-xs text-slate-500 mt-1 font-mono uppercase tracking-wider">Proposals sent to you directly by parents</p>
-                          </div>
-                          <div className="h-px bg-slate-800/80" />
-
-                          {(!directRequests || directRequests.length === 0) ? (
-                            <div className="bg-slate-900/40 border border-slate-850 rounded-2xl p-6 text-center">
-                              <p className="text-xs text-slate-500 font-mono italic">No direct tuition requests found.</p>
-                            </div>
-                          ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              {directRequests.map((job: any) => (
-                                <div key={job.id} className="bg-slate-950/60 border border-slate-850 p-4.5 rounded-2xl space-y-3 relative overflow-hidden group hover:border-emerald-500/30 transition-all duration-300">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-[10px] font-mono px-2 py-0.5 rounded border bg-emerald-500/10 text-emerald-400 border-emerald-500/20 font-extrabold">
-                                      Direct Request
-                                    </span>
-                                    <span className="text-[9px] font-mono px-2 py-0.5 rounded-md uppercase font-extrabold tracking-wider border bg-indigo-500/10 text-indigo-400 border-indigo-500/20">
-                                      Pending Action
-                                    </span>
-                                  </div>
-
-                                  <div className="space-y-1">
-                                    <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider block font-bold">Tuition Code</span>
-                                    <span className="text-xs text-slate-200 font-bold block">TCT-{String(job.jobSeq && job.jobSeq > 0 ? job.jobSeq : 1).padStart(3, '0')}</span>
-                                  </div>
-
-                                  <div className="grid grid-cols-2 gap-2 text-[10px] font-mono py-1">
-                                    <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-850 text-left">
-                                      <span className="text-slate-500 block text-[8px] uppercase font-bold">Class</span>
-                                      <span className="text-white font-bold">{job.classLevel}</span>
-                                    </div>
-                                    <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-850 text-left">
-                                      <span className="text-slate-500 block text-[8px] uppercase font-bold">Student Gender</span>
-                                      <span className="text-white font-bold">{job.studentGender}</span>
-                                    </div>
-                                    <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-850 text-left">
-                                      <span className="text-slate-500 block text-[8px] uppercase font-bold">Subject</span>
-                                      <span className="text-white font-bold truncate block">{job.subject}</span>
-                                    </div>
-                                    <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-850 text-left">
-                                      <span className="text-slate-500 block text-[8px] uppercase font-bold">Duration</span>
-                                      <span className="text-white font-bold truncate block">{job.duration}</span>
-                                    </div>
-                                    <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-850 text-left col-span-2">
-                                      <span className="text-slate-500 block text-[8px] uppercase font-bold">Time Preference</span>
-                                      <span className="text-white font-bold truncate block">{job.parent?.profile?.preferableTime || job.preferableTime || "Flexible"}</span>
-                                    </div>
-                                    <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-850 text-left col-span-2">
-                                      <span className="text-slate-500 block text-[8px] uppercase font-bold">📍 Approx Location</span>
-                                      <span className="text-white font-bold truncate block">
-                                        {(job.approxLatitude || job.latitude) ? <AreaName lat={job.approxLatitude || job.latitude} lng={job.approxLongitude || job.longitude} /> : "Not provided"}
-                                      </span>
-                                    </div>
-                                  </div>
-
-                                  <div className="bg-slate-900/40 p-3 rounded-xl border border-slate-850 text-[10px] text-amber-400 font-mono text-center">
-                                    ⚠️ To know full details, please contact TutorHire.
-                                  </div>
-
-                                  <button
-                                    onClick={() => setRequestModalJob(job)}
-                                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-2.5 px-4 rounded-xl text-xs font-sans transition duration-200 cursor-pointer border-none flex items-center justify-center"
-                                  >
-                                    Accept Request
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                  </>
-                  );
-                  })()}
-
-
-                  </div> {/* End of listings tab for Tutor */}
-                  {/* PROGRESS UPDATES PORTAL FOR TUTORS */}
-                  <div className={`space-y-8 ${activeTab === 'progress' ? 'block' : 'hidden'}`}>
-                    {(() => {
-                      const activeAssignments = (tutorJobs || []).filter((job: any) => job.status !== "REQUESTED");
-                      return (
-                        <>
                         {/* ASSIGNED TUITION JOBS & SECURE MATCH PAYMENTS FOR TUTORS */}
                         <div className="mt-8 border-t border-slate-800/80 pt-8 space-y-6">
                           <div>
@@ -1440,21 +1354,141 @@ export default function Dashboard() {
                                 </div>
                               )}
                             </div>
-
-                            {/* Student Progress Tracker */}
-                            {(job.status === "ASSIGNED" || job.status === "CONFIRMED") && job.commissionPaid && (
-                              <div className="border-t border-slate-800/60 pt-3 mt-2">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider font-bold">📊 Student Progress</span>
-                                </div>
-                                <ProgressTracker role="TUTOR" jobId={job.id} jobTitle={job.title} jobSubject={job.subject} />
-                              </div>
-                            )}
                           </div>
                         ))}
                       </div>
                     )}
                   </div>
+
+                        <div className="mt-8 border-t border-slate-800/80 pt-8 space-y-6">
+                          <div>
+                            <h2 className="text-xl font-bold font-heading text-white">Direct Tuition Requests</h2>
+                            <p className="text-xs text-slate-500 mt-1 font-mono uppercase tracking-wider">Proposals sent to you directly by parents</p>
+                          </div>
+                          <div className="h-px bg-slate-800/80" />
+
+                          {(!directRequests || directRequests.length === 0) ? (
+                            <div className="bg-slate-900/40 border border-slate-850 rounded-2xl p-6 text-center">
+                              <p className="text-xs text-slate-500 font-mono italic">No direct tuition requests found.</p>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {directRequests.map((job: any) => (
+                                <div key={job.id} className="bg-slate-950/60 border border-slate-850 p-4.5 rounded-2xl space-y-3 relative overflow-hidden group hover:border-emerald-500/30 transition-all duration-300">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-mono px-2 py-0.5 rounded border bg-emerald-500/10 text-emerald-400 border-emerald-500/20 font-extrabold">
+                                      Direct Request
+                                    </span>
+                                    <span className="text-[9px] font-mono px-2 py-0.5 rounded-md uppercase font-extrabold tracking-wider border bg-indigo-500/10 text-indigo-400 border-indigo-500/20">
+                                      Pending Action
+                                    </span>
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider block font-bold">Tuition Code</span>
+                                    <span className="text-xs text-slate-200 font-bold block">TCT-{String(job.jobSeq && job.jobSeq > 0 ? job.jobSeq : 1).padStart(3, '0')}</span>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 gap-2 text-[10px] font-mono py-1">
+                                    <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-850 text-left">
+                                      <span className="text-slate-500 block text-[8px] uppercase font-bold">Class</span>
+                                      <span className="text-white font-bold">{job.classLevel}</span>
+                                    </div>
+                                    <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-850 text-left">
+                                      <span className="text-slate-500 block text-[8px] uppercase font-bold">Student Gender</span>
+                                      <span className="text-white font-bold">{job.studentGender}</span>
+                                    </div>
+                                    <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-850 text-left">
+                                      <span className="text-slate-500 block text-[8px] uppercase font-bold">Subject</span>
+                                      <span className="text-white font-bold truncate block">{job.subject}</span>
+                                    </div>
+                                    <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-850 text-left">
+                                      <span className="text-slate-500 block text-[8px] uppercase font-bold">Duration</span>
+                                      <span className="text-white font-bold truncate block">{job.duration}</span>
+                                    </div>
+                                    <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-850 text-left col-span-2">
+                                      <span className="text-slate-500 block text-[8px] uppercase font-bold">Time Preference</span>
+                                      <span className="text-white font-bold truncate block">{job.parent?.profile?.preferableTime || job.preferableTime || "Flexible"}</span>
+                                    </div>
+                                    <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-850 text-left col-span-2">
+                                      <span className="text-slate-500 block text-[8px] uppercase font-bold">📍 Approx Location</span>
+                                      <span className="text-white font-bold truncate block">
+                                        {(job.approxLatitude || job.latitude) ? <AreaName lat={job.approxLatitude || job.latitude} lng={job.approxLongitude || job.longitude} /> : "Not provided"}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  <div className="bg-slate-900/40 p-3 rounded-xl border border-slate-850 text-[10px] text-amber-400 font-mono text-center">
+                                    ⚠️ To know full details, please contact TutorHire.
+                                  </div>
+
+                                  <button
+                                    onClick={() => setRequestModalJob(job)}
+                                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-2.5 px-4 rounded-xl text-xs font-sans transition duration-200 cursor-pointer border-none flex items-center justify-center"
+                                  >
+                                    Accept Request
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                  </>
+                  );
+                  })()}
+
+
+                  </div> {/* End of listings tab for Tutor */}
+                  {/* PROGRESS UPDATES PORTAL FOR TUTORS */}
+                  <div className={`space-y-8 ${activeTab === 'progress' ? 'block' : 'hidden'}`}>
+                    {(() => {
+                      const activeAssignments = (tutorJobs || []).filter((job: any) => job.status !== "REQUESTED");
+                      return (
+                        <>
+                        {/* ASSIGNED TUITION JOBS PROGRESS */}
+                        <div className="mt-8 border-t border-slate-800/80 pt-8 space-y-6">
+                          <div>
+                            <h2 className="text-xl font-bold font-heading text-white">Tuition Progress Updates</h2>
+                            <p className="text-xs text-slate-500 mt-1 font-mono uppercase tracking-wider">Track student progress for your active assignments</p>
+                          </div>
+                          <div className="h-px bg-slate-800/80" />
+
+                          {(!activeAssignments || activeAssignments.length === 0) ? (
+                            <div className="bg-slate-900/40 border border-slate-850 rounded-2xl p-6 text-center space-y-2">
+                              <p className="text-xs text-slate-500 font-mono italic">No active tuition job assignments found.</p>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {activeAssignments.map((job: any) => (
+                                (job.status === "ASSIGNED" || job.status === "CONFIRMED") && job.commissionPaid ? (
+                                  <div key={job.id} className="bg-slate-950/60 border border-slate-850 p-4.5 rounded-2xl space-y-3 relative overflow-hidden group hover:border-emerald-500/30 transition-all duration-300">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-[10px] font-mono px-2 py-0.5 rounded border bg-purple-500/10 text-purple-400 border-purple-500/20 font-extrabold">
+                                        Active Assignment
+                                      </span>
+                                    </div>
+                                    <div className="space-y-1 mb-2">
+                                      <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider block font-bold">Tuition Title</span>
+                                      <div className="flex items-center gap-1.5 mt-0.5">
+                                        <span className="text-[9px] font-mono font-extrabold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-1.5 py-0.5 rounded shrink-0">
+                                          TCT-{String(job.jobSeq && job.jobSeq > 0 ? job.jobSeq : 1).padStart(3, '0')}
+                                        </span>
+                                        <span className="text-xs text-slate-200 font-bold block text-left truncate">{job.title}</span>
+                                      </div>
+                                    </div>
+                                    <div className="border-t border-slate-800/60 pt-3 mt-2">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider font-bold">📊 Student Progress</span>
+                                      </div>
+                                      <ProgressTracker role="TUTOR" jobId={job.id} jobTitle={job.title} jobSubject={job.subject} />
+                                    </div>
+                                  </div>
+                                ) : null
+                              ))}
+                            </div>
+                          )}
+                        </div>
                         </>
                       );
                     })()}
