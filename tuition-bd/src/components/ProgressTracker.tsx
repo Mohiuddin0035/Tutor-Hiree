@@ -121,25 +121,10 @@ export default function ProgressTracker({ role, jobId, jobTitle, jobSubject, gua
     }
   }, [jobId, role, guardianId]);
 
-  const fetchSubscription = useCallback(async () => {
-    if (role === "PARENT" && guardianId) {
-      try {
-        const data = await fetchApi(`/subscriptions/jobs/${jobId}/status?guardianId=${guardianId}`);
-        if (data && data.active) {
-          setIsSubscribed(true);
-        } else {
-          setIsSubscribed(false);
-        }
-      } catch (err) {
-        console.error("Failed to check subscription:", err);
-      }
-    }
-  }, [jobId, role, guardianId]);
-
   useEffect(() => {
     setLoading(true);
-    Promise.all([fetchUpdates(), fetchHomeworks(), fetchSubscription()]).then(() => setLoading(false));
-  }, [fetchUpdates, fetchHomeworks, fetchSubscription]);
+    Promise.all([fetchUpdates(), fetchHomeworks()]).then(() => setLoading(false));
+  }, [fetchUpdates, fetchHomeworks]);
 
   // Mark updates as seen when parent opens updates tab
   useEffect(() => {
@@ -287,23 +272,6 @@ export default function ProgressTracker({ role, jobId, jobTitle, jobSubject, gua
   const avg7 = last7.length > 0 ? (last7.reduce((s: number, u: any) => s + u.rating, 0) / last7.length).toFixed(1) : "N/A";
   const avg30 = last30.length > 0 ? (last30.reduce((s: number, u: any) => s + u.rating, 0) / last30.length).toFixed(1) : "N/A";
 
-  const handleSubscribe = async () => {
-    if (!guardianId) return;
-    setSubscribing(true);
-    try {
-      const dummyTrxId = "TRX" + Date.now();
-      await fetchApi(`/subscriptions/jobs/${jobId}`, {
-        method: "POST",
-        body: JSON.stringify({ guardianId, trxId: dummyTrxId })
-      });
-      setIsSubscribed(true);
-      await fetchUpdates(); 
-      await fetchHomeworks();
-    } catch (err) {
-      console.error("Failed to subscribe", err);
-    }
-    setSubscribing(false);
-  };
 
   if (loading) {
     return (
@@ -316,22 +284,6 @@ export default function ProgressTracker({ role, jobId, jobTitle, jobSubject, gua
 
   return (
     <div className="space-y-4">
-      {/* Subscription Banner */}
-      {role === "PARENT" && !isSubscribed && (
-        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-center space-y-3">
-          <div className="text-xl">🔒</div>
-          <p className="text-xs text-amber-500/90 font-mono leading-relaxed max-w-md mx-auto">
-            Detailed tracking, homework, and tutor feedback are locked. Subscribe to Premium Tracking to unlock full transparency for your child's progress.
-          </p>
-          <button
-            onClick={handleSubscribe}
-            disabled={subscribing}
-            className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-6 py-2 rounded-lg text-[10px] font-mono uppercase tracking-wider transition cursor-pointer disabled:opacity-50"
-          >
-            {subscribing ? "Processing..." : "Subscribe for 500 BDT/mo"}
-          </button>
-        </div>
-      )}
 
       {/* Tab Navigation */}
       <div className="flex items-center gap-2 bg-slate-900/50 p-1 rounded-xl border border-slate-800/60">
