@@ -47,7 +47,7 @@ public class AdminController {
     @GetMapping("/verify")
     public ResponseEntity<?> getVerify() {
         List<Profile> pendingProfiles = profileRepository.findAll().stream()
-                .filter(p -> p.getUser() != null && "TUTOR".equals(p.getUser().getRole()))
+                .filter(p -> p.getUser() != null && "TUTOR".equals(p.getUser().getRole()) && "UNVERIFIED".equals(p.getVerificationStatus()))
                 .collect(java.util.stream.Collectors.toList());
         return ResponseEntity.ok(pendingProfiles);
     }
@@ -71,6 +71,24 @@ public class AdminController {
     @GetMapping("/profiles")
     public ResponseEntity<?> getProfiles() {
         return ResponseEntity.ok(profileRepository.findAll());
+    }
+
+    @PatchMapping("/profiles")
+    public ResponseEntity<?> updateProfileStatus(@RequestBody java.util.Map<String, Object> request) {
+        String profileId = (String) request.get("profileId");
+        Boolean isActive = (Boolean) request.get("is_active");
+        Boolean reactivationRequested = (Boolean) request.get("reactivationRequested");
+
+        return profileRepository.findById(profileId).map(profile -> {
+            if (isActive != null) {
+                profile.setIsActive(isActive);
+            }
+            if (reactivationRequested != null) {
+                profile.setReactivationRequested(reactivationRequested);
+            }
+            profileRepository.save(profile);
+            return ResponseEntity.ok("Profile status updated successfully");
+        }).orElse(ResponseEntity.badRequest().body("Profile not found"));
     }
 
     @GetMapping("/blacklist")

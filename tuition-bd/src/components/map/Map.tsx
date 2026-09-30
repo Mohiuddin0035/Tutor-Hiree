@@ -285,7 +285,7 @@ export default function MapComponent({
       fetchApi("/users?role=TUTOR")
         .then((data) => {
           const mapTutors = data
-            .filter((u: any) => u.profile && u.profile.is_active !== false)
+            .filter((u: any) => u.profile && u.profile.is_active !== false && u.profile.verificationStatus === "VERIFIED")
             .map((u: any) => {
               const reviews = u.receivedReviews || [];
               const confirmedCount = u.appliedJobs?.length || 0;

@@ -7,9 +7,13 @@ export default function Footer() {
   const pathname = usePathname();
 
   // Hide footer on interactive map and dashboard views for clean layout
-  const isMapOrDashboard = pathname?.startsWith("/dashboard") || pathname?.startsWith("/map");
+  const isHiddenRoute = pathname?.startsWith("/dashboard") || 
+                        pathname?.startsWith("/map") ||
+                        pathname?.startsWith("/admin") ||
+                        pathname?.startsWith("/login") ||
+                        pathname?.startsWith("/register");
 
-  if (isMapOrDashboard) return null;
+  if (isHiddenRoute) return null;
 
   return (
     <footer className="w-full bg-slate-950/80 border-t border-slate-900 mt-auto relative z-10 transition-colors duration-300">
