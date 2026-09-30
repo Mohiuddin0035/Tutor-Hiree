@@ -58,6 +58,7 @@ public class Profile {
     private String preferableTime;
 
     @Builder.Default
+    @com.fasterxml.jackson.annotation.JsonProperty("is_active")
     private Boolean isActive = true;
 
     @Builder.Default
