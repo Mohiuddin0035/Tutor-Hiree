@@ -1,0 +1,177 @@
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/about/page.tsx: {activeRole === "parent" ? "text-emerald-400" : "text-slate-400 hover:text-slate-200"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/about/page.tsx: {activeRole === "tutor" ? "text-indigo-400" : "text-slate-400 hover:text-slate-200"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/about/page.tsx: {activeRole === "tutor" ? "A better, more secure way to teach & earn" : "A better, more secure way to learn"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/about/page.tsx: {activeRole === "parent" ? "Verified Profiles" : "Profile Badges"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/about/page.tsx: {activeRole === "parent" ? "Smart Scheduling" : "Instant Matching"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/page.tsx: {useRouter}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/page.tsx: {userId}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/page.tsx: {userId}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/page.tsx: {(session.user as any)?.id}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/page.tsx: {userName || session.user?.name || "Operator"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/page.tsx: {String(tutorSeq && tutorSeq > 0 ? tutorSeq : 1).padStart(3, '0')}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/page.tsx: {String(tutorSeq && tutorSeq > 0 ? tutorSeq : 1).padStart(3, '0')}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/page.tsx: {role === "PARENT" ? "My Tuitions" : "Active Jobs"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/page.tsx: {job.parent.name}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/page.tsx: {job.parent.phone || "Not specified"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/page.tsx: {job.parent.email}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/page.tsx: {r.author?.name || "Parent"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/page.tsx: {parentId}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/page.tsx: {parentId}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/page.tsx: {String(t.tutorSeq).padStart(3, '0')}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/page.tsx: {(session?.user as any)?.id}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/page.tsx: {String(t.tutorSeq).padStart(3, '0')}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {useRouter}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {setSearchError(searchType === "user" ? "No user was found matching that registration number / details." : "No tuition post was found matching that ID.");}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {jobId, action: "assign", tutorId}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {userId, reason}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {userId}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {status: "OPEN", tutorRequirement: requirement}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {role === "TUTOR" ? "Tutor Directory & Location Audits" : "Parent Directory & Location Audits"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {role === "TUTOR" ? "Tutors" : "Parents"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {role === "TUTOR" ? "tutor" : "parent"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {getVisualId(profile.user?.role || "PARENT", profile.tutorSeq)}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {profile.user?.role || "PARENT"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {profile.user?.name || "Unknown Operator"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {profile.user?.email}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {profile.user.jobs.length}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {profile.user?.name || "Operator"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {searchType === "user" ? "Enter Reg No (e.g. TC-001) or CUID, Email, Phone..." : "Enter Tuition ID (e.g. TCT-001) or job CUID..."}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {job.parent?.name || "N/A"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {job.parent?.profile?.phone || "N/A"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {getVisualId(profile.user?.role || "TUTOR", profile.tutorSeq)}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {profile.user?.name || "Anonymous Educator"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {profile.user?.email}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {renderDirectoryTab("TUTOR")}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {renderDirectoryTab("PARENT")}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {job.parent?.name || "N/A"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {job.parent?.profile?.phone || "N/A"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {String(job.tutor.profile?.tutorSeq || 1).padStart(3, '0')}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {job.tutor.name}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {job.tutor.profile?.phone || "N/A"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {userSearchResult.name || "Operator"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {userSearchResult.name || "N/A"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {userSearchResult.email || "N/A"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {userSearchResult.profile?.phone || "N/A"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {userSearchResult.role}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {new Date(userSearchResult.createdAt).toLocaleString()}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {new Date(userSearchResult.updatedAt).toLocaleString()}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {userSearchResult.profile?.is_active !== false ? "Active" : "Inactive"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {userSearchResult.profile?.verificationStatus || "UNVERIFIED"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {userSearchResult.profile?.reactivationRequested ? "Yes (⚠️ Pending)" : "No"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {String(userSearchResult.profile?.tutorSeq || 1).padStart(3, '0')}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {String(userSearchResult.profile?.tutorSeq || 1).padStart(3, '0')}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {userSearchResult.profile.address || "No address configured"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {userSearchResult.profile.education || "No education history"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {userSearchResult.profile.bio || "No biography configured"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {userSearchResult.profile.preferable_time || "Any time"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {userSearchResult.profile.gender || "Any"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {userSearchResult.profile.latitude?.toFixed(6) || "N/A"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {userSearchResult.profile.longitude?.toFixed(6) || "N/A"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {userSearchResult.profile.actualLatitude?.toFixed(6) || "N/A"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {userSearchResult.profile.actualLongitude?.toFixed(6) || "N/A"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {userSearchResult.tuitionJobs?.length || 0}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {userSearchResult.appliedJobs?.length || 0}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {j.parent?.name || "Guardian"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {j.tutorId === userSearchResult.id ? "bg-emerald-500/10 text-emerald-400" : "bg-slate-800 text-slate-400"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {j.tutorId === userSearchResult.id ? "Assigned" : "Applied"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {JSON.stringify(userSearchResult, null, 2)}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {tuitionSearchResult.tutorDetailsReleased ? "Yes (✓)" : "No (Released Locked)"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {tuitionSearchResult.tutorRequirement || ""}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {jobId: tuitionSearchResult.id, action: "updateRequirement", tutorRequirement: reqVal}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {tuitionSearchResult.parent.name || "N/A"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {tuitionSearchResult.parent.email || "N/A"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {tuitionSearchResult.parent.profile?.phone || "N/A"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {String(tuitionSearchResult.tutor.profile?.tutorSeq || 1).padStart(3, '0')}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {tuitionSearchResult.tutor.name || "N/A"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {tuitionSearchResult.tutor.email || "N/A"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {tuitionSearchResult.tutor.profile?.phone || "N/A"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/dashboard/admin/page.tsx: {getVisualId(editingProfile.user?.role || "PARENT", editingProfile.tutorSeq)}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/register/page.tsx: {useRouter}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/register/page.tsx: {registerUser}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/register/page.tsx: {data.role === "TUTOR"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/register/page.tsx: {data.role === "TUTOR"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/register/page.tsx: {data.role === "TUTOR"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/register/page.tsx: {data.role === "TUTOR"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/register/page.tsx: {data.role === "TUTOR" && !nidImageUrl}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/register/page.tsx: {data.role === "TUTOR" && !universityIdImageUrl}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/register/page.tsx: {data.role === "TUTOR" && !selfieImageUrl}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/map/page.tsx: {useSearchParams, useRouter}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/map/page.tsx: {type === "tutor" ? "green verified educators" : "cyan jobs"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/forgot-password/page.tsx: {useRouter}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/login/page.tsx: {useRouter}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/login/page.tsx: {email: "", password: "", role: "PARENT"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/app/login/page.tsx: {loginUser}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/TuitionEstimator.tsx: {tutorDensity}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/TuitionEstimator.tsx: {tutorDensity}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/TuitionEstimator.tsx: {`/map?type=tutor`}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/BackButton.tsx: {useRouter, usePathname}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/Hero.tsx: {DEFAULT_TUTORS, DEFAULT_JOBS}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/Hero.tsx: {return ["tutor near you", "tuition match", "home educator", "academic guide"];}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/Hero.tsx: {currentTutor.name.split(" ")[1][0]}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/Hero.tsx: {background: "conic-gradient(from 0deg, rgba(20, 184, 166, 0.15) 0deg, rgba(20, 184, 166, 0.04) 60deg, transparent 180deg, transparent 360deg)",}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/Hero.tsx: {mockIndex % tutorPositions.length}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/Hero.tsx: {top: currentTutorPos.top, left: currentTutorPos.left}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/Hero.tsx: {shortTutorName}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/Hero.tsx: {currentTutor.name}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/Hero.tsx: {currentTutor.specs}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/Hero.tsx: {currentTutor.expertise}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/Navbar.tsx: {usePathname, useRouter, useSearchParams}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/Navbar.tsx: {selectedRole?: "parent" | "tutor";}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/FrontPageAdditions.tsx: {selectedRole: "parent" | "tutor";}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/FrontPageAdditions.tsx: {value: "12,400+", label: "Verified Tutors", description: "Top universities & background checked"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/FrontPageAdditions.tsx: {value: "4.92/5.0", label: "Parent Rating", description: "Voted by thousands of satisfied families"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/FrontPageAdditions.tsx: {value: "Nationwide", label: "Dense Coverage", description: "Connecting users across Bangladesh"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/FrontPageAdditions.tsx: {value: "100%", label: "Parent Verified", description: "Secure phone & location confirmations"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/FrontPageAdditions.tsx: {value: "Instant", label: "Instant Connection", description: "Unlock parent contact info after match"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/FrontPageAdditions.tsx: {selectedRole === "parent" ? "Find the Perfect Tutor in 3 Steps" : "Start Earning as a Premium Tutor"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/NavbarWrapper.tsx: {selectedRole?: "parent" | "tutor";}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/ProgressTracker.tsx: {homeworkId, status, tutorRemarks: remarks}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/ProgressTracker.tsx: {key: "updates", label: "Updates", badge: role === "PARENT" ? unseenCount : updates.length}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/ProgressTracker.tsx: {tab.key === "updates" && role === "PARENT" ? "bg-red-500 text-white" : "bg-slate-700 text-slate-300"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/ProgressTracker.tsx: {!update.seen && role === "PARENT" ? "border-emerald-500/30 bg-emerald-500/[0.03]" : "border-slate-800/60"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/ProgressTracker.tsx: {c.guardian?.name || "Parent"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/ProgressTracker.tsx: {hw.tutorRemarks}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/MapPreviewIntro.tsx: {job: any; tutor: any}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/MapPreviewIntro.tsx: {job: targetJob, tutor: bestTutor}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/MapPreviewIntro.tsx: {key: "posting", title: "2. Guardian Posts Job", desc: "A parent posts a new tuition request on the map."}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/MapPreviewIntro.tsx: {key: "matching", title: "3. Finding Tutors", desc: "Our platform searches for nearby verified tutors."}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/MapPreviewIntro.tsx: {key: "success", title: "5. Match Successful", desc: "Job is matched securely! Parent and Tutor are both happy."}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/MapPreviewIntro.tsx: {left: mainTutorCoords.left, top: mainTutorCoords.top}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/MapPreviewIntro.tsx: {(midX + mainTutorCoords.x)/2}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/MapPreviewIntro.tsx: {(midY + mainTutorCoords.y)/2 - 20}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/MapPreviewIntro.tsx: {mainTutorCoords.x}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/MapPreviewIntro.tsx: {mainTutorCoords.y}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/MapPreviewIntro.tsx: {cx: [midX, mainTutorCoords.x], cy: [midY, mainTutorCoords.y], opacity: [1, 0.2]}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {userLocation}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {userLocation: [number, number] | null}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {userLocation}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {userLocation: [number, number] | null}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {// Radius is locked. Do not change user location or radius on map click.}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {(session.user as any)?.id}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {setTutorGender(data.gender);}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {setUserLocation([position.coords.latitude, position.coords.longitude]);}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {setUserLocation([23.8103, 90.4125]);}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {setDbTutors(mapTutors);}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {userLocation || center}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {userLocation}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {setUserLocation}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {userLocation}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {userLocation}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {userLocation}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {isTutor ? "border-emerald-400 text-emerald-400 shadow-[0_0_15px_rgba(var(--theme-rgb),0.6)]" : "border-cyan-400 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.6)]"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {String(selectedItem.tutorSeq && selectedItem.tutorSeq > 0 ? selectedItem.tutorSeq : 1).padStart(3, '0')}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {selectedItem.name || 'Tutor Profile'}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {isRequesting ? "Sending Request..." : "Request Tutor"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {selectedItem.parent?.profile?.preferableTime || "Flexible"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {selectedItem.duration || selectedItem.parent?.profile?.hoursRequired || "Not Specified"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {selectedItem.studentGender || selectedItem.parent?.profile?.gender || "Not Specified"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {selectedItem.parent?.profile?.numberOfChildren || "1"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {selectedItem.tutorRequirement || "Any University / Department"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {String(selectedItem.tutorSeq && selectedItem.tutorSeq > 0 ? selectedItem.tutorSeq : 1).padStart(3, '0')}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {selectedItem.name || 'Tutor Profile'}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {selectedItem.parent?.profile?.preferableTime || "Flexible"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {selectedItem.duration || selectedItem.parent?.profile?.hoursRequired || "Not Specified"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {selectedItem.studentGender || selectedItem.parent?.profile?.gender || "Not Specified"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {selectedItem.parent?.profile?.numberOfChildren || "1"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/Map.tsx: {selectedItem.tutorRequirement || "Any University / Department"}
+/Users/naimurrahman/Downloads/Tuition/tuition-bd/src/components/map/MapPicker.tsx: {useEffect, useState, useMemo, useRef}

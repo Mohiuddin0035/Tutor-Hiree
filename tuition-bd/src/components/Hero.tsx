@@ -1,4 +1,5 @@
 "use client";
+import { fetchApi } from "@/lib/api";
 
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -28,45 +29,41 @@ export default function Hero({ onTriggerDemo }: HeroProps) {
   useEffect(() => {
     async function loadData() {
       try {
-        const [tutorsRes, jobsRes] = await Promise.all([
-          fetch("/api/users?role=TUTOR"),
-          fetch("/api/jobs")
+        const [tutorsData, jobsData] = await Promise.all([
+          fetchApi("/users?role=TUTOR").catch(() => null),
+          fetchApi("/jobs").catch(() => null)
         ]);
-        if (tutorsRes.ok && jobsRes.ok) {
-          const tutorsData = await tutorsRes.json();
-          const jobsData = await jobsRes.json();
 
-          if (tutorsData && tutorsData.length > 0) {
-            const mappedTutors = tutorsData.map((t: any, index: number) => {
-              const p = t.profile || {};
-              const defaultNames = ["Fahim Rahman", "Naimur Sohan", "Farhana Amin", "Tahmid Islam", "Aisha Siddiqua", "Sajid Hasan"];
-              const realName = t.name && t.name !== "undefined" ? t.name : (defaultNames[index % defaultNames.length]);
-              return {
-                name: realName,
-                specs: p.education || "Undergraduate Student",
-                expertise: p.bio || "Mathematics & Sciences",
-                sector: p.address || "Bangladesh",
-                coords: `${p.approxLatitude?.toFixed(4) ?? (23.7 + Math.random() * 0.1).toFixed(4)}° N, ${p.approxLongitude?.toFixed(4) ?? (90.3 + Math.random() * 0.1).toFixed(4)}° E`
-              };
-            });
-            setTutors(mappedTutors);
-          }
+        if (tutorsData && Array.isArray(tutorsData) && tutorsData.length > 0) {
+          const mappedTutors = tutorsData.map((t: any, index: number) => {
+            const p = t.profile || {};
+            const defaultNames = ["Fahim Rahman", "Naimur Sohan", "Farhana Amin", "Tahmid Islam", "Aisha Siddiqua", "Sajid Hasan"];
+            const realName = t.name && t.name !== "undefined" ? t.name : (defaultNames[index % defaultNames.length]);
+            return {
+              name: realName,
+              specs: p.education || "Undergraduate Student",
+              expertise: p.bio || "Mathematics & Sciences",
+              sector: p.address || "Bangladesh",
+              coords: `${p.approxLatitude?.toFixed(4) ?? (23.7 + Math.random() * 0.1).toFixed(4)}° N, ${p.approxLongitude?.toFixed(4) ?? (90.3 + Math.random() * 0.1).toFixed(4)}° E`
+            };
+          });
+          setTutors(mappedTutors);
+        }
 
-          if (jobsData && jobsData.length > 0) {
-            const mappedJobs = jobsData.map((j: any) => {
-              const rawTitle = j.title || "Tuition Job";
-              const cleanTitle = rawTitle.length > 26 ? rawTitle.substring(0, 25) + "..." : rawTitle;
-              return {
-                title: cleanTitle,
-                grade: `${j.classLevel || "Any Class"} (${j.subject || "All Subjects"})`,
-                salary: `${j.salary?.toLocaleString() ?? "Negotiable"} BDT/month`,
-                sector: j.address || "Bangladesh",
-                description: j.description || "No description provided.",
-                coords: `${j.approxLat?.toFixed(4) ?? (23.7 + Math.random() * 0.1).toFixed(4)}° N, ${j.approxLng?.toFixed(4) ?? (90.3 + Math.random() * 0.1).toFixed(4)}° E`
-              };
-            });
-            setJobs(mappedJobs);
-          }
+        if (jobsData && Array.isArray(jobsData) && jobsData.length > 0) {
+          const mappedJobs = jobsData.map((j: any) => {
+            const rawTitle = j.title || "Tuition Job";
+            const cleanTitle = rawTitle.length > 26 ? rawTitle.substring(0, 25) + "..." : rawTitle;
+            return {
+              title: cleanTitle,
+              grade: `${j.classLevel || "Any Class"} (${j.subject || "All Subjects"})`,
+              salary: `${j.salary?.toLocaleString() ?? "Negotiable"} BDT/month`,
+              sector: j.address || "Bangladesh",
+              description: j.description || "No description provided.",
+              coords: `${j.approxLat?.toFixed(4) ?? (23.7 + Math.random() * 0.1).toFixed(4)}° N, ${j.approxLng?.toFixed(4) ?? (90.3 + Math.random() * 0.1).toFixed(4)}° E`
+            };
+          });
+          setJobs(mappedJobs);
         }
       } catch (err) {
         console.error("Hero live load error", err);

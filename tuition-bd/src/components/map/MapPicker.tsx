@@ -11,9 +11,21 @@ const L = typeof window !== "undefined" ? require("leaflet") : null;
 
 function MapUpdater({ center }: { center: [number, number] }) {
   const map = useMap();
+  
   useEffect(() => {
     map.setView(center, map.getZoom());
+    setTimeout(() => map.invalidateSize(), 150);
   }, [center, map]);
+
+  useEffect(() => {
+    const observer = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    const container = map.getContainer();
+    if (container) observer.observe(container);
+    return () => observer.disconnect();
+  }, [map]);
+
   return null;
 }
 

@@ -1,4 +1,5 @@
 "use client";
+import { fetchApi } from "@/lib/api";
 
 import { useEffect, useState } from "react";
 import { MapContainer, TileLayer, Circle, Marker, Popup, useMap, CircleMarker, useMapEvents } from "react-leaflet";
@@ -145,8 +146,7 @@ export default function MapComponent({
 
   useEffect(() => {
     if (session && userRole === "PARENT") {
-      fetch("/api/jobs?mine=true")
-        .then((res) => res.json())
+      fetchApi(`/jobs?parentId=${(session.user as any)?.id}`)
         .then((data) => {
           if (Array.isArray(data)) {
             const activeJobs = data.filter((j: any) => j.status === "OPEN");
@@ -166,8 +166,7 @@ export default function MapComponent({
 
   useEffect(() => {
     if (session && userRole === "TUTOR") {
-      fetch("/api/profile")
-        .then((res) => res.json())
+      fetchApi("/profile")
         .then((data) => {
           if (data && data.gender) {
             setTutorGender(data.gender);
@@ -185,7 +184,7 @@ export default function MapComponent({
     setIsRequesting(true);
     setRequestSuccess("");
     try {
-      const res = await fetch("/api/jobs", {
+      await fetchApi("/jobs", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -194,16 +193,11 @@ export default function MapComponent({
           action: "request"
         })
       });
-      if (res.ok) {
-        setRequestSuccess("Request sent successfully to tutor!");
-        // Clear active jobs list of this job by removing it
-        setMyActiveJobs((prev) => prev.filter((j) => j.id !== requestingJobId));
-        setActivePostsCount((prev) => (prev ? prev - 1 : 0));
-        setRequestingJobId("");
-      } else {
-        const txt = await res.text();
-        alert(txt || "Failed to send request.");
-      }
+      setRequestSuccess("Request sent successfully to tutor!");
+      // Clear active jobs list of this job by removing it
+      setMyActiveJobs((prev) => prev.filter((j) => j.id !== requestingJobId));
+      setActivePostsCount((prev) => (prev ? prev - 1 : 0));
+      setRequestingJobId("");
     } catch (e) {
       alert("Error sending request.");
     } finally {
@@ -230,21 +224,15 @@ export default function MapComponent({
     }
     setApplyingJobId(jobId);
     try {
-      const res = await fetch("/api/jobs", {
+      await fetchApi("/jobs", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jobId, action: "apply" }),
       });
-      if (res.ok) {
-        alert("✓ Applied successfully! Check your tutor dashboard assigned section.");
-        window.location.reload();
-      } else {
-        const errorText = await res.text();
-        alert(errorText || "Failed to submit application. Please try again.");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Network error. Please try again.");
+      alert("✓ Applied successfully! Check your tutor dashboard assigned section.");
+    } catch (e) {
+      console.error(e);
+      alert("Error applying for job.");
     } finally {
       setApplyingJobId(null);
     }
@@ -283,16 +271,21 @@ export default function MapComponent({
     if (!isMounted) return;
 
     if (type !== "tutor") {
-      fetch("/api/jobs")
-        .then((res) => res.json())
-        .then((data) => setDbJobs(data))
-        .catch((err) => console.error(err));
+      fetchApi(`/jobs?t=${Date.now()}`)
+        .then((data) => {
+          const mappedJobs = data.map((job: any) => ({
+            ...job,
+            approxLat: job.approxLatitude || (job.latitude + (Math.random() * 0.005 - 0.0025)),
+            approxLng: job.approxLongitude || (job.longitude + (Math.random() * 0.005 - 0.0025))
+          }));
+          setDbJobs(mappedJobs);
+        })
+        .catch((err) => console.warn(err));
     } else {
-      fetch("/api/users?role=TUTOR")
-        .then((res) => res.json())
+      fetchApi("/users?role=TUTOR")
         .then((data) => {
           const mapTutors = data
-            .filter((u: any) => u.profile && u.profile.is_active !== false)
+            .filter((u: any) => u.profile && u.profile.is_active !== false && u.profile.verificationStatus === "VERIFIED")
             .map((u: any) => {
               const reviews = u.receivedReviews || [];
               const confirmedCount = u.appliedJobs?.length || 0;
@@ -304,13 +297,13 @@ export default function MapComponent({
               return {
                 id: u.id,
                 name: u.name,
-                approxLat: u.profile.approxLatitude || 23.734,
-                approxLng: u.profile.approxLongitude || 90.3928,
+                approxLat: u.profile.approxLatitude || (u.profile.latitude ? u.profile.latitude + (Math.random() * 0.005 - 0.0025) : 23.734 + (Math.random() * 0.005 - 0.0025)),
+                approxLng: u.profile.approxLongitude || (u.profile.longitude ? u.profile.longitude + (Math.random() * 0.005 - 0.0025) : 90.3928 + (Math.random() * 0.005 - 0.0025)),
                 verified: u.profile.verificationStatus === "VERIFIED",
                 subject: u.profile.bio || "Various Subjects",
                 education: u.profile.education || "Dhaka University",
                 gender: u.profile.gender || "Male",
-                preferable_time: u.profile.preferable_time || "Available All Day",
+                preferableTime: u.profile.preferableTime || "Available All Day",
                 hasConfirmedTuition,
                 avgRating,
                 reviews,
@@ -330,7 +323,7 @@ export default function MapComponent({
                 subject: "Physics, Advanced Mathematics",
                 education: "Dhaka University",
                 gender: "Male",
-                preferable_time: "Evening (4:00 PM - 8:00 PM)",
+                preferableTime: "Evening (4:00 PM - 8:00 PM)",
                 tutorSeq: 1,
               },
               {
@@ -342,7 +335,7 @@ export default function MapComponent({
                 subject: "English Literature, IELTS Preparation",
                 education: "North South University",
                 gender: "Female",
-                preferable_time: "Available All Day",
+                preferableTime: "Available All Day",
                 tutorSeq: 2,
               },
             ]);
@@ -350,7 +343,35 @@ export default function MapComponent({
             setDbTutors(mapTutors);
           }
         })
-        .catch((err) => console.error(err));
+        .catch((err) => {
+          console.warn(err);
+          setDbTutors([
+            {
+              id: "mock1",
+              name: "Rahim (DU Physics Major)",
+              approxLat: 23.734,
+              approxLng: 90.3928,
+              verified: true,
+              subject: "Physics, Advanced Mathematics",
+              education: "Dhaka University",
+              gender: "Male",
+              preferableTime: "Evening (4:00 PM - 8:00 PM)",
+              tutorSeq: 1,
+            },
+            {
+              id: "mock2",
+              name: "Nusrat (NSU English Dept)",
+              approxLat: 23.7925,
+              approxLng: 90.4078,
+              verified: false,
+              subject: "English Literature, IELTS Preparation",
+              education: "North South University",
+              gender: "Female",
+              preferableTime: "Available All Day",
+              tutorSeq: 2,
+            },
+          ]);
+        });
     }
   }, [type, isMounted]);
 
@@ -422,6 +443,9 @@ export default function MapComponent({
 
   // Filter coordinates based on proximity range and unlock status
   let filteredItems = type === "tutor" ? dbTutors : dbJobs;
+  
+  // Ensure we only render items with valid coordinates
+  filteredItems = filteredItems.filter((item: any) => item.approxLat != null && item.approxLng != null);
 
   if (type !== "tutor") {
     // Immediate coordinates vanish: hide if unlocked or status is not open
@@ -621,7 +645,7 @@ export default function MapComponent({
                 <div className="flex flex-col gap-1 bg-slate-900/50 border border-slate-850 p-3 rounded-xl">
                   <span className="text-slate-500 text-[10px] uppercase font-mono tracking-wider">Preferable Time</span>
                   <span className="text-emerald-400 font-sans text-sm font-semibold">
-                    {selectedItem.preferable_time}
+                    {selectedItem.preferableTime}
                   </span>
                 </div>
                 <div className="flex flex-col gap-1 bg-slate-900/50 border border-slate-850 p-3 rounded-xl">
@@ -639,11 +663,11 @@ export default function MapComponent({
                   </span>
                 </div>
               )}
-              <div className="bg-amber-500/10 border border-amber-500/25 p-3 rounded-xl text-amber-400 font-mono text-[11px] leading-relaxed text-center font-semibold">
-                📞 Phone hidden. Request this tutor and pay 10% commission fee to unlock full contact details.
-              </div>
               {userRole === "PARENT" && (
                 <div className="pt-2 border-t border-slate-800 space-y-3">
+                  <div className="bg-amber-500/10 border border-amber-500/25 p-3 rounded-xl text-amber-400 font-mono text-[11px] leading-relaxed text-center font-semibold mb-3">
+                    📞 Phone hidden. Request this tutor to unlock full contact details.
+                  </div>
                   <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider block font-bold">Direct Tutor Request</span>
                   {requestSuccess ? (
                     <div className="bg-emerald-500/10 border border-emerald-500/20 p-2.5 rounded-lg text-center font-mono text-[10px] text-emerald-400 font-extrabold">
@@ -668,7 +692,7 @@ export default function MapComponent({
                         ))}
                       </select>
                       <button
-                        onClick={() => handleRequestTutor(selectedItem.userId)}
+                        onClick={() => handleRequestTutor(selectedItem.id)}
                         disabled={isRequesting || !requestingJobId}
                         className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-bold py-2.5 px-3 rounded-xl text-xs transition duration-200 cursor-pointer border-none flex items-center justify-center"
                       >
@@ -700,7 +724,7 @@ export default function MapComponent({
                 </div>
                 <div className="flex justify-between items-center border-b border-slate-900 pb-2">
                   <span className="text-slate-500 text-[10px] uppercase font-mono">Time</span>
-                  <span className="text-white font-sans text-sm font-semibold">{selectedItem.parent?.preferable_time || "Flexible"}</span>
+                  <span className="text-white font-sans text-sm font-semibold">{selectedItem.parent?.profile?.preferableTime || "Flexible"}</span>
                 </div>
                 <div className="flex justify-between items-center border-b border-slate-900 pb-2">
                   <span className="text-slate-500 text-[10px] uppercase font-mono">Salary</span>
@@ -708,15 +732,15 @@ export default function MapComponent({
                 </div>
                 <div className="flex justify-between items-center border-b border-slate-900 pb-2">
                   <span className="text-slate-500 text-[10px] uppercase font-mono">Duration</span>
-                  <span className="text-white font-sans text-sm font-semibold">{selectedItem.parent?.hoursRequired || "Not Specified"}</span>
+                  <span className="text-white font-sans text-sm font-semibold">{selectedItem.duration || selectedItem.parent?.profile?.hoursRequired || "Not Specified"}</span>
                 </div>
                 <div className="flex justify-between items-center border-b border-slate-900 pb-2">
                   <span className="text-slate-500 text-[10px] uppercase font-mono">Student Gender</span>
-                  <span className="text-white font-sans text-sm font-semibold">{selectedItem.parent?.gender || "Not Specified"}</span>
+                  <span className="text-white font-sans text-sm font-semibold">{selectedItem.studentGender || selectedItem.parent?.profile?.gender || "Not Specified"}</span>
                 </div>
                 <div className="flex justify-between items-center border-b border-slate-900 pb-2">
                   <span className="text-slate-500 text-[10px] uppercase font-mono">Students</span>
-                  <span className="text-white font-sans text-sm font-semibold">{selectedItem.parent?.numberOfChildren || "1"}</span>
+                  <span className="text-white font-sans text-sm font-semibold">{selectedItem.parent?.profile?.numberOfChildren || "1"}</span>
                 </div>
                 <div className="flex justify-between items-center border-b border-slate-900 pb-2">
                   <span className="text-slate-500 text-[10px] uppercase font-mono">Tutor Requirement</span>
@@ -825,18 +849,18 @@ export default function MapComponent({
                 </div>
                 <div className="flex flex-col gap-0.5 bg-slate-900/50 border border-slate-850 p-2.5 rounded-xl">
                   <span className="text-slate-500 text-[9px] uppercase font-mono tracking-wider">Preferable Time</span>
-                  <span className="text-emerald-400 font-sans font-semibold truncate">{selectedItem.preferable_time}</span>
+                  <span className="text-emerald-400 font-sans font-semibold truncate">{selectedItem.preferableTime}</span>
                 </div>
                 <div className="flex flex-col gap-0.5 bg-slate-900/50 border border-slate-850 p-2.5 rounded-xl">
                   <span className="text-slate-500 text-[9px] uppercase font-mono tracking-wider">Gender</span>
                   <span className="text-white font-sans font-semibold truncate">{selectedItem.gender}</span>
                 </div>
               </div>
-              <div className="bg-amber-500/10 border border-amber-500/25 p-2.5 rounded-xl text-amber-400 font-mono text-[10px] leading-relaxed text-center font-semibold mb-1">
-                📞 Phone hidden. Request and pay 10% fee to unlock.
-              </div>
               {userRole === "PARENT" && (
                 <div className="pt-2 border-t border-slate-800 space-y-2">
+                  <div className="bg-amber-500/10 border border-amber-500/25 p-2.5 rounded-xl text-amber-400 font-mono text-[10px] leading-relaxed text-center font-semibold mb-2">
+                    📞 Phone hidden. Request and pay 10% fee to unlock.
+                  </div>
                   <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider block font-bold">Direct Tutor Request</span>
                   {requestSuccess ? (
                     <div className="bg-emerald-500/10 border border-emerald-500/20 p-2 rounded-lg text-center font-mono text-[9px] text-emerald-400 font-extrabold">
@@ -892,7 +916,7 @@ export default function MapComponent({
                 </div>
                 <div className="flex justify-between items-center bg-slate-900/50 p-1.5 rounded-lg">
                   <span className="text-slate-500">Time:</span>
-                  <span className="text-white font-sans truncate ml-1">{selectedItem.parent?.preferable_time || "Flexible"}</span>
+                  <span className="text-white font-sans truncate ml-1">{selectedItem.parent?.profile?.preferableTime || "Flexible"}</span>
                 </div>
                 <div className="flex justify-between items-center bg-slate-900/50 p-1.5 rounded-lg">
                   <span className="text-slate-500">Salary:</span>
@@ -900,15 +924,15 @@ export default function MapComponent({
                 </div>
                 <div className="flex justify-between items-center bg-slate-900/50 p-1.5 rounded-lg">
                   <span className="text-slate-500">Duration:</span>
-                  <span className="text-white font-sans truncate ml-1">{selectedItem.parent?.hoursRequired || "Not Specified"}</span>
+                  <span className="text-white font-sans truncate ml-1">{selectedItem.duration || selectedItem.parent?.profile?.hoursRequired || "Not Specified"}</span>
                 </div>
                 <div className="flex justify-between items-center bg-slate-900/50 p-1.5 rounded-lg">
                   <span className="text-slate-500">Gender:</span>
-                  <span className="text-white font-sans truncate ml-1">{selectedItem.parent?.gender || "Not Specified"}</span>
+                  <span className="text-white font-sans truncate ml-1">{selectedItem.studentGender || selectedItem.parent?.profile?.gender || "Not Specified"}</span>
                 </div>
                 <div className="flex justify-between items-center bg-slate-900/50 p-1.5 rounded-lg">
                   <span className="text-slate-500">Students:</span>
-                  <span className="text-white font-sans truncate ml-1">{selectedItem.parent?.numberOfChildren || "1"}</span>
+                  <span className="text-white font-sans truncate ml-1">{selectedItem.parent?.profile?.numberOfChildren || "1"}</span>
                 </div>
                 <div className="flex justify-between items-center bg-slate-900/50 p-1.5 rounded-lg col-span-2">
                   <span className="text-slate-500">Requirement:</span>

@@ -1,4 +1,5 @@
 "use client";
+import { fetchApi } from "@/lib/api";
 
 import { useState, useEffect, useCallback } from "react";
 
@@ -7,6 +8,7 @@ interface ProgressTrackerProps {
   jobId: string;
   jobTitle: string;
   jobSubject: string;
+  guardianId?: string;
 }
 
 const UPDATE_TYPES = [
@@ -55,13 +57,15 @@ function timeAgo(date: string | Date) {
   return `${days}d ago`;
 }
 
-export default function ProgressTracker({ role, jobId, jobTitle, jobSubject }: ProgressTrackerProps) {
+export default function ProgressTracker({ role, jobId, jobTitle, jobSubject, guardianId }: ProgressTrackerProps) {
   const [activeTab, setActiveTab] = useState<"updates" | "homework" | "summary">("updates");
   const [updates, setUpdates] = useState<any[]>([]);
   const [homeworks, setHomeworks] = useState<any[]>([]);
   const [hwStats, setHwStats] = useState({ total: 0, completed: 0, overdue: 0, assigned: 0 });
   const [unseenCount, setUnseenCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isSubscribed, setIsSubscribed] = useState(role === "TUTOR"); // Tutors always have access
+  const [subscribing, setSubscribing] = useState(false);
 
   // Post form states (tutor only)
   const [showForm, setShowForm] = useState(false);
@@ -94,29 +98,28 @@ export default function ProgressTracker({ role, jobId, jobTitle, jobSubject }: P
 
   const fetchUpdates = useCallback(async () => {
     try {
-      const res = await fetch(`/api/progress?jobId=${jobId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setUpdates(data.updates || []);
-        setUnseenCount(data.unseenCount || 0);
+      const url = role === "PARENT" && guardianId ? `/progress/job/${jobId}?guardianId=${guardianId}` : `/progress/job/${jobId}`;
+      const data = await fetchApi(url);
+      if (Array.isArray(data)) {
+        setUpdates(data);
       }
     } catch (err) {
       console.error("Failed to fetch updates:", err);
     }
-  }, [jobId]);
+  }, [jobId, role, guardianId]);
 
   const fetchHomeworks = useCallback(async () => {
     try {
-      const res = await fetch(`/api/homework?jobId=${jobId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setHomeworks(data.homeworks || []);
-        setHwStats(data.stats || { total: 0, completed: 0, overdue: 0, assigned: 0 });
+      const url = role === "PARENT" && guardianId ? `/progress/homework/job/${jobId}?guardianId=${guardianId}` : `/progress/homework/job/${jobId}`;
+      const data = await fetchApi(url);
+      if (Array.isArray(data)) {
+        setHomeworks(data);
+        // Note: hwStats logic might need adjustment if stats are not returned anymore
       }
     } catch (err) {
       console.error("Failed to fetch homeworks:", err);
     }
-  }, [jobId]);
+  }, [jobId, role, guardianId]);
 
   useEffect(() => {
     setLoading(true);
@@ -140,12 +143,11 @@ export default function ProgressTracker({ role, jobId, jobTitle, jobSubject }: P
     if (!file) return;
     setUploading(true);
     try {
-      const res = await fetch(`/api/upload-attachment?filename=${encodeURIComponent(file.name)}`, {
+      const data = await fetchApi(`/upload-attachment?filename=${encodeURIComponent(file.name)}`, {
         method: "POST",
         body: file,
       });
-      if (res.ok) {
-        const data = await res.json();
+      if (data) {
         setFormAttachments((prev) => [...prev, data.url]);
       }
     } catch (err) {
@@ -171,18 +173,16 @@ export default function ProgressTracker({ role, jobId, jobTitle, jobSubject }: P
       if (addHomework && hwTitle.trim() && hwDueDate) {
         payload.homework = { title: hwTitle.trim(), description: hwDesc.trim(), subject: hwSubject, dueDate: hwDueDate };
       }
-      const res = await fetch("/api/progress", {
+      await fetchApi("/progress", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (res.ok) {
-        // Reset form
-        setFormTitle(""); setFormDesc(""); setFormRating(0); setFormAttachments([]);
-        setAddHomework(false); setHwTitle(""); setHwDesc(""); setHwDueDate("");
-        setShowForm(false);
-        await Promise.all([fetchUpdates(), fetchHomeworks()]);
-      }
+      // Reset form
+      setFormTitle(""); setFormDesc(""); setFormRating(0); setFormAttachments([]);
+      setAddHomework(false); setHwTitle(""); setHwDesc(""); setHwDueDate("");
+      setShowForm(false);
+      await Promise.all([fetchUpdates(), fetchHomeworks()]);
     } catch (err) {
       console.error("Submit failed:", err);
     }
@@ -194,15 +194,13 @@ export default function ProgressTracker({ role, jobId, jobTitle, jobSubject }: P
     if (!hwTitle.trim() || !hwDueDate) return;
     setSubmittingHw(true);
     try {
-      const res = await fetch("/api/homework", {
+      await fetchApi("/homework", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jobId, title: hwTitle.trim(), description: hwDesc.trim(), subject: hwSubject, dueDate: hwDueDate }),
       });
-      if (res.ok) {
-        setHwTitle(""); setHwDesc(""); setHwDueDate("");
-        await fetchHomeworks();
-      }
+      setHwTitle(""); setHwDesc(""); setHwDueDate("");
+      await fetchHomeworks();
     } catch (err) {
       console.error("Homework submit failed:", err);
     }
@@ -211,12 +209,12 @@ export default function ProgressTracker({ role, jobId, jobTitle, jobSubject }: P
 
   const handleMarkHomework = async (homeworkId: string, status: string, remarks?: string) => {
     try {
-      const res = await fetch("/api/homework", {
+      await fetchApi("/homework", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ homeworkId, status, tutorRemarks: remarks }),
       });
-      if (res.ok) await fetchHomeworks();
+      await fetchHomeworks();
     } catch (err) {
       console.error("Mark homework failed:", err);
     }
@@ -226,16 +224,14 @@ export default function ProgressTracker({ role, jobId, jobTitle, jobSubject }: P
     if (!commentText.trim()) return;
     setSubmittingComment(true);
     try {
-      const res = await fetch("/api/progress/comments", {
+      await fetchApi("/progress/comments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ progressUpdateId, comment: commentText.trim() }),
       });
-      if (res.ok) {
-        setCommentText("");
-        setCommentingOnId(null);
-        await fetchUpdates();
-      }
+      setCommentText("");
+      setCommentingOnId(null);
+      await fetchUpdates();
     } catch (err) {
       console.error("Comment failed:", err);
     }
@@ -244,15 +240,13 @@ export default function ProgressTracker({ role, jobId, jobTitle, jobSubject }: P
 
   const handleEditUpdate = async (updateId: string) => {
     try {
-      const res = await fetch("/api/progress", {
+      await fetchApi("/progress", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ updateId, action: "edit", title: editTitle, description: editDesc }),
       });
-      if (res.ok) {
-        setEditingId(null);
-        await fetchUpdates();
-      }
+      setEditingId(null);
+      await fetchUpdates();
     } catch (err) {
       console.error("Edit failed:", err);
     }
@@ -261,8 +255,8 @@ export default function ProgressTracker({ role, jobId, jobTitle, jobSubject }: P
   const handleDeleteUpdate = async (updateId: string) => {
     if (!confirm("Delete this update?")) return;
     try {
-      const res = await fetch(`/api/progress?updateId=${updateId}`, { method: "DELETE" });
-      if (res.ok) await fetchUpdates();
+      await fetchApi(`/progress?updateId=${updateId}`, { method: "DELETE" });
+      await fetchUpdates();
     } catch (err) {
       console.error("Delete failed:", err);
     }
@@ -278,6 +272,7 @@ export default function ProgressTracker({ role, jobId, jobTitle, jobSubject }: P
   const avg7 = last7.length > 0 ? (last7.reduce((s: number, u: any) => s + u.rating, 0) / last7.length).toFixed(1) : "N/A";
   const avg30 = last30.length > 0 ? (last30.reduce((s: number, u: any) => s + u.rating, 0) / last30.length).toFixed(1) : "N/A";
 
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -289,6 +284,7 @@ export default function ProgressTracker({ role, jobId, jobTitle, jobSubject }: P
 
   return (
     <div className="space-y-4">
+
       {/* Tab Navigation */}
       <div className="flex items-center gap-2 bg-slate-900/50 p-1 rounded-xl border border-slate-800/60">
         {[

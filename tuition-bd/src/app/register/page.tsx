@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { detectFaceInImage } from "@/lib/faceDetection";
+import { fetchApi } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
 
@@ -81,25 +82,25 @@ export default function Register() {
       console.log("OCR scan text outcome:", text);
 
       if (type === "nid") {
-        const nidKeywords = [
-          "national", "identity", "card", "bangladesh", "government", 
-          "birth", "nid", "no", "number", "name", "father", "mother",
-          "republic", "peoples", "issue", "date"
-        ];
-        // Enforce that it MUST match at least one NID keyword
-        const matches = nidKeywords.filter((keyword) => text.includes(keyword));
-        console.log("NID Matches:", matches);
-        return matches.length >= 1;
+        const isStudentIdInstead = /\b(student|university|college|school|semester|institute)\b/i.test(text);
+        const isNid = /\b(national id|national identity|government|republic|bangladesh)\b/i.test(text);
+        
+        // Only reject if it clearly looks like a Student ID and has no NID markers
+        if (isStudentIdInstead && !isNid) {
+          console.log("Rejected NID upload: Detected Student ID markers instead.");
+          return false;
+        }
+        return true; // Lenient pass for bad OCR
       } else {
-        const idKeywords = [
-          "student", "id", "card", "university", "college", "school",
-          "registration", "roll", "valid", "expiry", "class", "semester",
-          "session", "institute", "hall", "department", "academic"
-        ];
-        // Enforce that it MUST match at least one ID keyword
-        const matches = idKeywords.filter((keyword) => text.includes(keyword));
-        console.log("ID Matches:", matches);
-        return matches.length >= 1;
+        const isNidInstead = /\b(national id|national identity|government|republic)\b/i.test(text) || (text.includes("birth") && text.includes("certificate"));
+        const isStudentId = /\b(student|university|college|school|institute|department)\b/i.test(text);
+        
+        // Only reject if it clearly looks like an NID/Birth Cert and has no Student ID markers
+        if (isNidInstead && !isStudentId) {
+          console.log("Rejected Student ID upload: Detected NID/Govt markers instead.");
+          return false;
+        }
+        return true; // Lenient pass for bad OCR
       }
     } catch (err) {
       console.error("OCR validation crashed, bypassing:", err);
@@ -139,17 +140,16 @@ export default function Register() {
     setError("");
 
     try {
-      const response = await fetch(`/api/upload?context=register&filename=${encodeURIComponent(file.name)}`, {
+      // Note: FileUploadController expects multipart form data with name 'file'
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetchApi(`/upload`, {
         method: "POST",
-        body: file,
+        body: formData,
       });
 
-      if (!response.ok) {
-        throw new Error("Upload failed");
-      }
-
-      const json = await response.json();
-      setNidImageUrl(json.url);
+      setNidImageUrl(response.url);
       setUploadStatus("done");
     } catch (err) {
       console.error("NID_UPLOAD_ERROR", err);
@@ -192,17 +192,15 @@ export default function Register() {
     setError("");
 
     try {
-      const response = await fetch(`/api/upload?context=register&filename=${encodeURIComponent(file.name)}`, {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetchApi(`/upload`, {
         method: "POST",
-        body: file,
+        body: formData,
       });
 
-      if (!response.ok) {
-        throw new Error("Upload failed");
-      }
-
-      const json = await response.json();
-      setUniversityIdImageUrl(json.url);
+      setUniversityIdImageUrl(response.url);
       setUploadStatusStudentId("done");
     } catch (err) {
       console.error("STUDENT_ID_UPLOAD_ERROR", err);
@@ -223,13 +221,29 @@ export default function Register() {
     setError("");
 
     try {
-      const isRealHuman = await detectFaceInImage(file);
-      if (!isRealHuman) {
+      // 1. Quick OCR Check to catch ID Cards being uploaded as selfies
+      const Tesseract = (await import("tesseract.js")).default;
+      const result = await Tesseract.recognize(file, "eng");
+      const text = result.data.text.toLowerCase();
+      
+      const isDocument = /\b(national id|identity|student|university|college|school|republic|bangladesh|government|institute|birth certificate)\b/i.test(text);
+      
+      if (isDocument) {
         setUploadStatusSelfie("error");
-        setError("Invalid Profile Picture: The uploaded image does not appear to be a real human photo or clear portrait shot. Please upload a clear photo of your face.");
+        setError("Invalid Profile Picture: Please upload a clear photo of your face, not an ID card or document.");
         setUploadingSelfie(false);
         return;
       }
+
+      // 2. Face Detection
+      const isRealHuman = await detectFaceInImage(file);
+      if (!isRealHuman) {
+        setUploadStatusSelfie("error");
+        setError("Invalid Profile Picture: No clear human face detected. Please upload a portrait photo of yourself.");
+        setUploadingSelfie(false);
+        return;
+      }
+      
       await uploadSelfie(file);
     } catch (err) {
       console.error("Selfie upload error:", err);
@@ -243,17 +257,15 @@ export default function Register() {
     setError("");
 
     try {
-      const response = await fetch(`/api/upload?context=register&filename=${encodeURIComponent(file.name)}`, {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetchApi(`/upload`, {
         method: "POST",
-        body: file,
+        body: formData,
       });
 
-      if (!response.ok) {
-        throw new Error("Upload failed");
-      }
-
-      const json = await response.json();
-      setSelfieImageUrl(json.url);
+      setSelfieImageUrl(response.url);
       setUploadStatusSelfie("done");
     } catch (err) {
       console.error("SELFIE_UPLOAD_ERROR", err);
@@ -306,20 +318,16 @@ export default function Register() {
       selfieImageUrl: data.role === "TUTOR" ? selfieImageUrl : undefined,
     };
 
-    const response = await fetch("/api/register", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    setLoading(false);
-    if (response.ok) {
+    try {
+      await fetchApi("/auth/register", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      setLoading(false);
       router.push("/login");
-    } else {
-      const errMsg = await response.text();
-      setError(errMsg || "Registration failed. Please check your inputs and try again.");
+    } catch (err: any) {
+      setLoading(false);
+      setError(err.message || "Registration failed. Please check your inputs and try again.");
     }
   };
 
@@ -468,6 +476,7 @@ export default function Register() {
                 transition={{ duration: 0.3 }}
                 className="space-y-4 overflow-hidden pt-2"
               >
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="block text-[10px] font-mono uppercase tracking-wider text-slate-400 font-semibold">Highest Education Level</label>
@@ -570,7 +579,7 @@ export default function Register() {
                         accept="image/*"
                         onChange={handleFileChange}
                         className="absolute inset-0 opacity-0 cursor-pointer z-20"
-                      />
+                      onClick={(e) => { e.currentTarget.value = ""; }} />
 
                       {uploadStatus === "idle" && (
                         <div className="space-y-2 pointer-events-none flex flex-col items-center">
@@ -623,7 +632,10 @@ export default function Register() {
                               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                             </svg>
                           </div>
-                          <p className="text-[10px] text-red-400 font-semibold font-mono">Failed</p>
+                          <div className="text-center space-y-0.5">
+                            <p className="text-[10px] text-red-400 font-semibold font-mono">Failed</p>
+                            <p className="text-[8px] text-slate-400 font-mono">Click to reupload</p>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -642,7 +654,7 @@ export default function Register() {
                         accept="image/*"
                         onChange={handleStudentIdFileChange}
                         className="absolute inset-0 opacity-0 cursor-pointer z-20"
-                      />
+                      onClick={(e) => { e.currentTarget.value = ""; }} />
 
                       {uploadStatusStudentId === "idle" && (
                         <div className="space-y-2 pointer-events-none flex flex-col items-center">
@@ -695,7 +707,10 @@ export default function Register() {
                               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                             </svg>
                           </div>
-                          <p className="text-[10px] text-red-400 font-semibold font-mono">Failed</p>
+                          <div className="text-center space-y-0.5">
+                            <p className="text-[10px] text-red-400 font-semibold font-mono">Failed</p>
+                        <p className="text-[8px] text-slate-400 font-mono">Click to reupload</p>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -714,7 +729,7 @@ export default function Register() {
                         accept="image/*"
                         onChange={handleSelfieFileChange}
                         className="absolute inset-0 opacity-0 cursor-pointer z-20"
-                      />
+                      onClick={(e) => { e.currentTarget.value = ""; }} />
 
                       {uploadStatusSelfie === "idle" && (
                         <div className="space-y-2 pointer-events-none flex flex-col items-center">
@@ -761,7 +776,10 @@ export default function Register() {
                               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                             </svg>
                           </div>
-                          <p className="text-[10px] text-red-400 font-semibold font-mono">Failed</p>
+                          <div className="text-center space-y-0.5">
+                            <p className="text-[10px] text-red-400 font-semibold font-mono">Failed</p>
+                        <p className="text-[8px] text-slate-400 font-mono">Click to reupload</p>
+                          </div>
                         </div>
                       )}
                     </div>

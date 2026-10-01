@@ -9,7 +9,7 @@ import { detectFaceInImage } from "@/lib/faceDetection";
 import { motion, AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
 import ProgressTracker from "@/components/ProgressTracker";
-
+import { fetchApi } from "@/lib/api";
 const MapPicker = dynamic(() => import("@/components/map/MapPicker"), {
   ssr: false,
   loading: () => (
@@ -71,9 +71,29 @@ const validateImageContent = async (file: File, type: "nid" | "idcard"): Promise
   }
 };
 
+// Small helper component to reverse-geocode lat/lng to area name
+function AreaName({ lat, lng }: { lat: number; lng: number }) {
+  const [name, setName] = useState<string>("Loading...");
+  useEffect(() => {
+    fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=14`)
+      .then(r => r.json())
+      .then(data => {
+        const a = data.address || {};
+        const area = a.suburb || a.neighbourhood || a.city_district || a.town || a.village || "";
+        const city = a.city || a.state_district || a.state || "";
+        setName(area && city ? `${area}, ${city}` : area || city || "Dhaka");
+      })
+      .catch(() => setName("Dhaka"));
+  }, [lat, lng]);
+  return <>{name}</>;
+}
+
 export default function Dashboard() {
   const { data: session, status } = useSession() || { data: null, status: "unauthenticated" };
   const router = useRouter();
+  const [userName, setUserName] = useState<string>("");
+  const [lastLogin, setLastLogin] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<string>("listings");
 
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
@@ -111,9 +131,14 @@ export default function Dashboard() {
 
   // Commission payment states
   const [commissionTrxId, setCommissionTrxId] = useState("");
+  const [bkashNumber, setBkashNumber] = useState("");
+  const [selectedPaymentJobId, setSelectedPaymentJobId] = useState<string | null>(null);
   const [payingCommissionJobId, setPayingCommissionJobId] = useState<string | null>(null);
   const [requestingRefundJobId, setRequestingRefundJobId] = useState<string | null>(null);
   const [refundReason, setRefundReason] = useState("");
+
+  const [payingProgressJobId, setPayingProgressJobId] = useState<string | null>(null);
+  const [progressTrxId, setProgressTrxId] = useState("");
 
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileMessage, setProfileMessage] = useState("");
@@ -242,12 +267,27 @@ export default function Dashboard() {
   const loadDashboardData = () => {
     if (session) {
       if ((session.user as any)?.role === "ADMIN") {
-        router.push("/dashboard/admin");
+        if (window.location.pathname !== "/admin") router.replace("/admin");
         return;
       }
 
-      fetch(`/api/profile?t=${Date.now()}`)
-        .then((res) => res.json())
+      if ((session.user as any)?.role === "TUTOR" && window.location.pathname !== "/tutor") {
+        router.replace("/tutor");
+      } else if ((session.user as any)?.role === "PARENT" && window.location.pathname !== "/parent") {
+        router.replace("/parent");
+      }
+
+      const userId = (session.user as any)?.id;
+      
+      // Fetch User Name and Last Login
+      fetchApi(`/users/${userId}`)
+        .then((userData) => {
+          if (userData.name) setUserName(userData.name);
+          if (userData.updatedAt) setLastLogin(new Date(userData.updatedAt).toLocaleString());
+        })
+        .catch(err => console.error("Error fetching user", err));
+
+      fetchApi(`/profile/user/${userId}?t=${Date.now()}`)
         .then((data) => {
           if (data.phone) setPhone(data.phone);
           if (data.address) setAddress(data.address);
@@ -275,15 +315,17 @@ export default function Dashboard() {
           if (data.hasConfirmedTuition !== undefined) setHasConfirmedTuition(data.hasConfirmedTuition);
           if (data.reviews) setReviews(data.reviews);
           if (data.averageRating !== undefined) setAverageRating(data.averageRating);
-          if (data.assignedTutors) setAssignedTutors(data.assignedTutors);
+          if (data.assignedTutors) {
+            setAssignedTutors(data.assignedTutors);
+            setHasAssignedTutor(data.assignedTutors.filter((t: any) => t.commissionPaid).length > 0);
+          }
           if (data.tutorSeq !== undefined) setTutorSeq(data.tutorSeq);
           if (data.tutorJobs) setTutorJobs(data.tutorJobs);
           if (data.paymentHistory) setPaymentHistory(data.paymentHistory);
 
           // Fetch parent's own listings
           if (data.role === "PARENT" || (session.user as any)?.role === "PARENT") {
-            fetch("/api/jobs?mine=true")
-              .then((r) => r.json())
+            fetchApi(`/jobs?parentId=${(session.user as any)?.id}`)
               .then((jobs) => setMyJobs(Array.isArray(jobs) ? jobs : []))
               .catch(() => {});
           }
@@ -295,32 +337,63 @@ export default function Dashboard() {
   const handleAcceptRequest = async (jobId: string) => {
     setIsAccepting(true);
     try {
-      const res = await fetch("/api/jobs", {
+      await fetchApi("/jobs", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           jobId,
           action: "accept",
         })
       });
-      if (res.ok) {
-        setRequestModalJob(null);
-        setPopupType("success");
-        setPopupMessage("✓ Request accepted! Please pay the 10% commission fee from your dashboard to unlock parent contact details.");
-        setPopupOpen(true);
-        loadDashboardData();
-      } else {
-        const txt = await res.text();
-        setPopupType("error");
-        setPopupMessage(txt || "Failed to accept direct request.");
-        setPopupOpen(true);
-      }
+      setRequestModalJob(null);
+      setPopupType("success");
+      setPopupMessage("✓ Request accepted! Please pay the 10% commission fee from your dashboard to unlock parent contact details.");
+      setPopupOpen(true);
+      loadDashboardData();
     } catch (e) {
       setPopupType("error");
       setPopupMessage("Network error accepting request.");
       setPopupOpen(true);
     } finally {
       setIsAccepting(false);
+    }
+  };
+
+  const handlePayProgress = async (jobId: string) => {
+    if (!progressTrxId.trim()) {
+      setPopupType("error");
+      setPopupMessage("Please enter your bKash Transaction ID (TrxID).");
+      setPopupOpen(true);
+      return;
+    }
+
+    try {
+      setPayingProgressJobId(jobId);
+      const res = await fetchApi("/jobs", {
+        method: "PATCH",
+        body: JSON.stringify({
+          jobId,
+          action: "pay-progress",
+          trxId: progressTrxId.trim(),
+        })
+      });
+
+      if (!res.error) {
+        setPopupType("success");
+        setPopupMessage("✓ Progress subscription submitted! Please wait for admin approval to unlock tracking.");
+        setPopupOpen(true);
+        loadDashboardData();
+        setProgressTrxId("");
+      } else {
+        setPopupType("error");
+        setPopupMessage(res.error || "Failed to submit payment. Please try again.");
+        setPopupOpen(true);
+      }
+    } catch (err: any) {
+      setPopupType("error");
+      setPopupMessage(err.message || "Something went wrong.");
+      setPopupOpen(true);
+    } finally {
+      setPayingProgressJobId(null);
     }
   };
 
@@ -333,27 +406,19 @@ export default function Dashboard() {
     }
     setPayingCommissionJobId(jobId);
     try {
-      const res = await fetch("/api/jobs", {
+      await fetchApi("/jobs", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           jobId,
           action: "pay-commission",
           trxId: commissionTrxId.trim(),
         })
       });
-      if (res.ok) {
-        setCommissionTrxId("");
-        setPopupType("success");
-        setPopupMessage("✓ Commission paid successfully! Full parent contact details have been unlocked.");
-        setPopupOpen(true);
-        loadDashboardData();
-      } else {
-        const txt = await res.text();
-        setPopupType("error");
-        setPopupMessage(txt || "Failed to process commission payment.");
-        setPopupOpen(true);
-      }
+      setCommissionTrxId("");
+      setPopupType("success");
+      setPopupMessage("✓ Payment submitted successfully! Please wait for admin approval to unlock details.");
+      setPopupOpen(true);
+      loadDashboardData();
     } catch (e) {
       setPopupType("error");
       setPopupMessage("Network error processing payment.");
@@ -366,27 +431,19 @@ export default function Dashboard() {
   const handleRequestRefund = async (jobId: string) => {
     setRequestingRefundJobId(jobId);
     try {
-      const res = await fetch("/api/jobs", {
+      await fetchApi("/jobs", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           jobId,
           action: "request-refund",
           reason: refundReason || "Requesting refund",
         })
       });
-      if (res.ok) {
-        setRefundReason("");
-        setPopupType("success");
-        setPopupMessage("✓ Refund request submitted! Admin will review within 24 hours.");
-        setPopupOpen(true);
-        loadDashboardData();
-      } else {
-        const txt = await res.text();
-        setPopupType("error");
-        setPopupMessage(txt || "Failed to request refund.");
-        setPopupOpen(true);
-      }
+      setRefundReason("");
+      setPopupType("success");
+      setPopupMessage("✓ Refund request submitted! Admin will review within 24 hours.");
+      setPopupOpen(true);
+      loadDashboardData();
     } catch (e) {
       setPopupType("error");
       setPopupMessage("Network error requesting refund.");
@@ -418,25 +475,16 @@ export default function Dashboard() {
 
   const handleRequestReactivation = async () => {
     try {
-      const res = await fetch("/api/profile", {
+      await fetchApi("/profile", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({
           reactivationRequested: true,
         }),
       });
-      if (res.ok) {
-        setReactivationRequested(true);
-        setPopupType("success");
-        setPopupMessage("Your reactivation request has been sent successfully. Please allow up to 24 hours for review, or call our helpline at 096-96-847-847 for immediate assistance.");
-        setPopupOpen(true);
-      } else {
-        setPopupType("error");
-        setPopupMessage("Failed to send reactivation request.");
-        setPopupOpen(true);
-      }
+      setReactivationRequested(true);
+      setPopupType("success");
+      setPopupMessage("Your reactivation request has been sent successfully. Please allow up to 24 hours for review, or call our helpline at 096-96-847-847 for immediate assistance.");
+      setPopupOpen(true);
     } catch (err) {
       console.error(err);
       setPopupType("error");
@@ -450,11 +498,8 @@ export default function Dashboard() {
     setIsSavingProfile(true);
     setProfileMessage("");
     try {
-      const res = await fetch("/api/profile", {
+      await fetchApi("/profile", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({ 
           phone, 
           address, 
@@ -469,12 +514,7 @@ export default function Dashboard() {
           actualLongitude
         }),
       });
-
-      if (res.ok) {
-        setProfileMessage("✓ Profile configurations updated successfully!");
-      } else {
-        setProfileMessage("Failed to update profile settings.");
-      }
+      setProfileMessage("✓ Profile configurations updated successfully!");
     } catch (err) {
       console.error("SAVE_PROFILE_ERROR", err);
       setProfileMessage("An error occurred while saving profile.");
@@ -495,9 +535,12 @@ export default function Dashboard() {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div className="space-y-1">
               <h1 className="text-3xl font-extrabold font-heading text-white tracking-tight">
-                Welcome, {session.user?.name || "Operator"}
+                Welcome, {userName || session.user?.name || "Operator"}
               </h1>
-              <p className="text-slate-400 text-sm font-mono flex items-center">
+              {lastLogin && (
+                <p className="text-xs text-slate-500 font-mono mt-1">Last seen: {lastLogin}</p>
+              )}
+              <p className="text-slate-400 text-sm font-mono flex items-center mt-2">
                 <span className="h-2 w-2 rounded-full bg-emerald-500 mr-2 shadow-[0_0_8px_rgba(var(--theme-rgb),0.8)] animate-pulse" />
                 Logged in as: <span className="text-emerald-400 ml-1 font-bold uppercase tracking-wider">{role}</span>
                 <span className="ml-3 px-2 py-0.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-xs rounded font-bold font-mono">
@@ -603,10 +646,44 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* Horizontal Navigation Tabs */}
+        <div className="flex gap-2 overflow-x-auto pb-4 mb-6 scrollbar-hide border-b border-slate-800">
+          <button 
+            onClick={() => setActiveTab("listings")}
+            className={`px-6 py-3 rounded-t-xl text-sm font-bold font-mono uppercase tracking-wider transition-all duration-300 whitespace-nowrap ${activeTab === "listings" ? "bg-emerald-500/10 text-emerald-400 border-b-2 border-emerald-500" : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/50"}`}
+          >
+            {role === "PARENT" ? "My Tuitions" : "Active Jobs"}
+          </button>
+          <button 
+            onClick={() => setActiveTab("profile")}
+            className={`px-6 py-3 rounded-t-xl text-sm font-bold font-mono uppercase tracking-wider transition-all duration-300 whitespace-nowrap ${activeTab === "profile" ? "bg-emerald-500/10 text-emerald-400 border-b-2 border-emerald-500" : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/50"}`}
+          >
+            Profile & Security
+          </button>
+          <button 
+            onClick={() => setActiveTab("ratings")}
+            className={`px-6 py-3 rounded-t-xl text-sm font-bold font-mono uppercase tracking-wider transition-all duration-300 whitespace-nowrap ${activeTab === "ratings" ? "bg-emerald-500/10 text-emerald-400 border-b-2 border-emerald-500" : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/50"}`}
+          >
+            Ratings & Feedback
+          </button>
+          <button 
+            onClick={() => setActiveTab("payment")}
+            className={`px-6 py-3 rounded-t-xl text-sm font-bold font-mono uppercase tracking-wider transition-all duration-300 whitespace-nowrap ${activeTab === "payment" ? "bg-emerald-500/10 text-emerald-400 border-b-2 border-emerald-500" : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/50"}`}
+          >
+            Payment Ledger
+          </button>
+          <button 
+            onClick={() => setActiveTab("progress")}
+            className={`px-6 py-3 rounded-t-xl text-sm font-bold font-mono uppercase tracking-wider transition-all duration-300 whitespace-nowrap ${activeTab === "progress" ? "bg-emerald-500/10 text-emerald-400 border-b-2 border-emerald-500" : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/50"}`}
+          >
+            Progress Updates
+          </button>
+        </div>
+
         {/* Dashboard Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Column 1: Profile Settings (Left) */}
-          <div className="lg:col-span-5 space-y-8">
+        <div className="flex flex-col gap-8">
+          {/* Profile Settings (Left) */}
+          <div className={`w-full max-w-4xl mx-auto space-y-8 ${activeTab === 'profile' ? 'block' : 'hidden'}`}>
             <div className="glass-card rounded-2xl p-6 border border-slate-800 space-y-6">
               <div>
                 <h2 className="text-xl font-bold font-heading text-white">Profile Coordinates</h2>
@@ -788,10 +865,10 @@ export default function Dashboard() {
 
           {/* Column 2: Role Specific Board (Right) */}
           <div className="lg:col-span-7 space-y-8">
-            <div className="glass-card rounded-2xl p-6 border border-slate-800 space-y-6">
+            <div className={`glass-card rounded-2xl p-6 border border-slate-800 space-y-6 ${activeTab === 'payment' ? 'hidden' : 'block'}`}>
               {role === "TUTOR" ? (
-                // TUTOR INTERFACE
                 <>
+                  <div className={`space-y-6 ${activeTab === 'profile' ? 'block' : 'hidden'}`}>
                   {verificationStatus !== "VERIFIED" ? (
                     <>
                       <div>
@@ -866,53 +943,40 @@ export default function Dashboard() {
 
                         // 1. Upload NID Scan if selected
                         if (nidFile) {
-                          const uploadRes = await fetch(`/api/upload?context=tutor&filename=${encodeURIComponent("nid-" + nidFile.name)}`, {
+                          const formData = new FormData();
+                          formData.append('file', nidFile);
+                          const uploadRes = await fetchApi(`/upload`, {
                             method: "POST",
-                            body: nidFile,
+                            body: formData,
                           });
-
-                          if (!uploadRes.ok) {
-                            throw new Error("Failed to upload National ID scan.");
-                          }
-
-                          const blobJson = await uploadRes.json();
-                          nidUrl = blobJson.url;
+                          nidUrl = uploadRes.url;
                         }
 
                         // 2. Upload Student ID Scan if selected
                         if (studentIdFile) {
-                          const uploadRes = await fetch(`/api/upload?context=tutor&filename=${encodeURIComponent("stud-" + studentIdFile.name)}`, {
+                          const formData = new FormData();
+                          formData.append('file', studentIdFile);
+                          const uploadRes = await fetchApi(`/upload`, {
                             method: "POST",
-                            body: studentIdFile,
+                            body: formData,
                           });
-
-                          if (!uploadRes.ok) {
-                            throw new Error("Failed to upload Student ID scan.");
-                          }
-
-                          const blobJson = await uploadRes.json();
-                          studentIdUrl = blobJson.url;
+                          studentIdUrl = uploadRes.url;
                         }
 
                         // 3. Upload Selfie if selected
                         if (selfieFile) {
-                          const uploadRes = await fetch(`/api/upload?context=tutor&filename=${encodeURIComponent("selfie-" + selfieFile.name)}`, {
+                          const formData = new FormData();
+                          formData.append('file', selfieFile);
+                          const uploadRes = await fetchApi(`/upload`, {
                             method: "POST",
-                            body: selfieFile,
+                            body: formData,
                           });
-
-                          if (!uploadRes.ok) {
-                            throw new Error("Failed to upload Selfie holding ID.");
-                          }
-
-                          const blobJson = await uploadRes.json();
-                          selfieUrl = blobJson.url;
+                          selfieUrl = uploadRes.url;
                         }
 
                         // 4. Log profile verification in real database
-                        const res = await fetch("/api/profile/verify", {
+                        await fetchApi("/profile/verify", {
                           method: "POST",
-                          headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({
                             nidImageUrl: nidUrl || undefined,
                             universityIdImageUrl: studentIdUrl || undefined,
@@ -921,19 +985,13 @@ export default function Dashboard() {
                         });
 
                         setIsSubmittingVerify(false);
-                        if (res.ok) {
-                          setVerificationStatus("PENDING");
-                          setRejectionReason("");
-                          setRejectedAt("");
-                          setPopupType("success");
-                          setPopupMessage("✓ Credentials uploaded and verification request logged! Your files are now under verification by the TutorHire Admin.");
-                          setPopupOpen(true);
-                          formEl.reset();
-                        } else {
-                          setPopupType("error");
-                          setPopupMessage("Failed to record verification request. Please try again.");
-                          setPopupOpen(true);
-                        }
+                        setVerificationStatus("PENDING");
+                        setRejectionReason("");
+                        setRejectedAt("");
+                        setPopupType("success");
+                        setPopupMessage("✓ Credentials uploaded and verification request logged! Your files are now under verification by the TutorHire Admin.");
+                        setPopupOpen(true);
+                        formEl.reset();
                       } catch (error: any) {
                         console.error("UPLOAD_VERIFY_ERROR", error);
                         setPopupType("error");
@@ -1139,7 +1197,11 @@ export default function Dashboard() {
                       </div>
                     </>
                   )}
+                  </div>
+                  {/* End of Profile Tab for Tutor */}
 
+                  {/* Start of Listings Tab for Tutor */}
+                  <div className={`space-y-8 ${activeTab === 'listings' ? 'block' : 'hidden'}`}>
                   {/* DIRECT TUITION REQUESTS SECTION */}
                   {(() => {
                     const directRequests = (tutorJobs || []).filter((job: any) => job.status === "REQUESTED");
@@ -1147,74 +1209,6 @@ export default function Dashboard() {
 
                     return (
                       <>
-                        <div className="mt-8 border-t border-slate-800/80 pt-8 space-y-6">
-                          <div>
-                            <h2 className="text-xl font-bold font-heading text-white">Direct Tuition Requests</h2>
-                            <p className="text-xs text-slate-500 mt-1 font-mono uppercase tracking-wider">Proposals sent to you directly by parents</p>
-                          </div>
-                          <div className="h-px bg-slate-800/80" />
-
-                          {(!directRequests || directRequests.length === 0) ? (
-                            <div className="bg-slate-900/40 border border-slate-850 rounded-2xl p-6 text-center">
-                              <p className="text-xs text-slate-500 font-mono italic">No direct tuition requests found.</p>
-                            </div>
-                          ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              {directRequests.map((job: any) => (
-                                <div key={job.id} className="bg-slate-950/60 border border-slate-850 p-4.5 rounded-2xl space-y-3 relative overflow-hidden group hover:border-emerald-500/30 transition-all duration-300">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-[10px] font-mono px-2 py-0.5 rounded border bg-emerald-500/10 text-emerald-400 border-emerald-500/20 font-extrabold">
-                                      Direct Request
-                                    </span>
-                                    <span className="text-[9px] font-mono px-2 py-0.5 rounded-md uppercase font-extrabold tracking-wider border bg-indigo-500/10 text-indigo-400 border-indigo-500/20">
-                                      Pending Action
-                                    </span>
-                                  </div>
-
-                                  <div className="space-y-1">
-                                    <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider block font-bold">Tuition Code</span>
-                                    <span className="text-xs text-slate-200 font-bold block">TCT-{String(job.jobSeq && job.jobSeq > 0 ? job.jobSeq : 1).padStart(3, '0')}</span>
-                                  </div>
-
-                                  <div className="grid grid-cols-2 gap-2 text-[10px] font-mono py-1">
-                                    <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-850 text-left">
-                                      <span className="text-slate-500 block text-[8px] uppercase font-bold">Class</span>
-                                      <span className="text-white font-bold">{job.classLevel}</span>
-                                    </div>
-                                    <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-850 text-left">
-                                      <span className="text-slate-500 block text-[8px] uppercase font-bold">Student Gender</span>
-                                      <span className="text-white font-bold">{job.studentGender}</span>
-                                    </div>
-                                    <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-850 text-left">
-                                      <span className="text-slate-500 block text-[8px] uppercase font-bold">Subject</span>
-                                      <span className="text-white font-bold truncate block">{job.subject}</span>
-                                    </div>
-                                    <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-850 text-left">
-                                      <span className="text-slate-500 block text-[8px] uppercase font-bold">Duration</span>
-                                      <span className="text-white font-bold truncate block">{job.duration}</span>
-                                    </div>
-                                    <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-850 text-left col-span-2">
-                                      <span className="text-slate-500 block text-[8px] uppercase font-bold">Time Preference</span>
-                                      <span className="text-white font-bold truncate block">{job.preferableTime}</span>
-                                    </div>
-                                  </div>
-
-                                  <div className="bg-slate-900/40 p-3 rounded-xl border border-slate-850 text-[10px] text-amber-400 font-mono text-center">
-                                    ⚠️ To know full details, please contact TutorHire.
-                                  </div>
-
-                                  <button
-                                    onClick={() => setRequestModalJob(job)}
-                                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-2.5 px-4 rounded-xl text-xs font-sans transition duration-200 cursor-pointer border-none flex items-center justify-center"
-                                  >
-                                    Accept Request
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
                         {/* ASSIGNED TUITION JOBS & SECURE MATCH PAYMENTS FOR TUTORS */}
                         <div className="mt-8 border-t border-slate-800/80 pt-8 space-y-6">
                           <div>
@@ -1272,7 +1266,7 @@ export default function Dashboard() {
                                 <div className="space-y-2">
                                   <div className="bg-slate-900/40 p-2.5 rounded-xl text-xs space-y-1 text-slate-300 font-sans text-left">
                                     <p><span className="text-slate-500 font-mono text-[10px]">Name:</span> {job.parent.name}</p>
-                                    <p><span className="text-slate-500 font-mono text-[10px]">Phone:</span> {job.parent.phone || "Not specified"}</p>
+                                    <p><span className="text-slate-500 font-mono text-[10px]">Phone:</span> {job.parent.profile?.phone || job.parent.phone || "Not specified"}</p>
                                     <p><span className="text-slate-500 font-mono text-[10px]">Email:</span> {job.parent.email}</p>
                                     <p className="text-[9px] text-emerald-400 font-mono mt-1 flex items-center gap-1">
                                       <svg className="w-3 h-3 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
@@ -1321,53 +1315,189 @@ export default function Dashboard() {
                                     </div>
                                   )}
                                 </div>
-                              ) : (
+                              ) : job.status === "PAYMENT_PENDING" ? (
                                 <div className="space-y-2">
-                                  <div className="bg-amber-500/5 border border-amber-500/10 p-2.5 rounded-xl text-[10px] font-mono text-amber-500 leading-normal text-left">
-                                    Pay the 10% commission fee (৳{job.commissionAmount || Math.ceil(job.salary * 0.10)}) via bKash/Nagad to unlock parent contact details and exact location.
+                                  <div className="bg-yellow-500/5 border border-yellow-500/10 p-2.5 rounded-xl text-[10px] font-mono text-yellow-400 text-center flex flex-col gap-1 items-center justify-center">
+                                    <div className="animate-spin h-4 w-4 border-2 border-yellow-400 border-t-transparent rounded-full mb-1" />
+                                    <span>Payment submitted successfully.</span>
+                                    <span>Waiting for admin approval to unlock details.</span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="space-y-3 bg-pink-500/5 border border-pink-500/20 p-3.5 rounded-xl">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <div className="bg-pink-500 text-white font-bold px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wide">bKash</div>
+                                    <span className="text-[10px] font-mono text-pink-400 font-bold">Secure Payment Gateway</span>
+                                  </div>
+                                  <div className="text-[10px] font-mono text-slate-300 leading-relaxed text-left">
+                                    Please Send Money <strong className="text-pink-400">৳{job.commissionAmount || Math.ceil(job.salary * 0.10)}</strong> to our bKash Number: <strong className="text-white text-xs bg-slate-900 px-1 py-0.5 rounded border border-slate-700">01711223344</strong>. Then enter the Transaction ID (TrxID) below to submit for admin approval.
                                   </div>
                                   <div className="space-y-2">
-                                    <input
-                                      type="text"
-                                      value={commissionTrxId}
-                                      onChange={(e) => setCommissionTrxId(e.target.value)}
-                                      placeholder="Enter bKash/Nagad TrxID..."
-                                      className="w-full bg-slate-950 border border-slate-800 text-slate-100 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
-                                    />
+                                    <div className="relative">
+                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-[10px]">TrxID</span>
+                                      <input
+                                        type="text"
+                                        value={commissionTrxId}
+                                        onChange={(e) => setCommissionTrxId(e.target.value)}
+                                        placeholder="e.g. 8N3MK9XYZ"
+                                        className="w-full bg-slate-950/80 border border-pink-500/30 text-slate-100 rounded-xl pl-12 pr-3 py-2 text-xs focus:outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500 transition font-mono uppercase"
+                                      />
+                                    </div>
                                     <button
                                       onClick={() => handlePayCommission(job.id)}
                                       disabled={payingCommissionJobId === job.id}
-                                      className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-2 px-4 rounded-xl text-xs transition duration-200 cursor-pointer border-none flex items-center justify-center disabled:opacity-50"
+                                      className="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-2 px-4 rounded-xl text-xs transition duration-200 cursor-pointer border-none flex items-center justify-center disabled:opacity-50 font-mono tracking-wider shadow-[0_0_10px_rgba(236,72,153,0.3)]"
                                     >
-                                      {payingCommissionJobId === job.id ? "Processing..." : `Pay ৳${job.commissionAmount || Math.ceil(job.salary * 0.10)} Commission`}
+                                      {payingCommissionJobId === job.id ? "Processing..." : `Submit Payment`}
                                     </button>
                                   </div>
                                 </div>
                               )}
                             </div>
-
-                            {/* Student Progress Tracker */}
-                            {job.status === "ASSIGNED" && job.commissionPaid && (
-                              <div className="border-t border-slate-800/60 pt-3 mt-2">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider font-bold">📊 Student Progress</span>
-                                </div>
-                                <ProgressTracker role="TUTOR" jobId={job.id} jobTitle={job.title} jobSubject={job.subject} />
-                              </div>
-                            )}
                           </div>
                         ))}
                       </div>
                     )}
                   </div>
+
+                        <div className="mt-8 border-t border-slate-800/80 pt-8 space-y-6">
+                          <div>
+                            <h2 className="text-xl font-bold font-heading text-white">Direct Tuition Requests</h2>
+                            <p className="text-xs text-slate-500 mt-1 font-mono uppercase tracking-wider">Proposals sent to you directly by parents</p>
+                          </div>
+                          <div className="h-px bg-slate-800/80" />
+
+                          {(!directRequests || directRequests.length === 0) ? (
+                            <div className="bg-slate-900/40 border border-slate-850 rounded-2xl p-6 text-center">
+                              <p className="text-xs text-slate-500 font-mono italic">No direct tuition requests found.</p>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {directRequests.map((job: any) => (
+                                <div key={job.id} className="bg-slate-950/60 border border-slate-850 p-4.5 rounded-2xl space-y-3 relative overflow-hidden group hover:border-emerald-500/30 transition-all duration-300">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-mono px-2 py-0.5 rounded border bg-emerald-500/10 text-emerald-400 border-emerald-500/20 font-extrabold">
+                                      Direct Request
+                                    </span>
+                                    <span className="text-[9px] font-mono px-2 py-0.5 rounded-md uppercase font-extrabold tracking-wider border bg-indigo-500/10 text-indigo-400 border-indigo-500/20">
+                                      Pending Action
+                                    </span>
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider block font-bold">Tuition Code</span>
+                                    <span className="text-xs text-slate-200 font-bold block">TCT-{String(job.jobSeq && job.jobSeq > 0 ? job.jobSeq : 1).padStart(3, '0')}</span>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 gap-2 text-[10px] font-mono py-1">
+                                    <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-850 text-left">
+                                      <span className="text-slate-500 block text-[8px] uppercase font-bold">Class</span>
+                                      <span className="text-white font-bold">{job.classLevel}</span>
+                                    </div>
+                                    <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-850 text-left">
+                                      <span className="text-slate-500 block text-[8px] uppercase font-bold">Student Gender</span>
+                                      <span className="text-white font-bold">{job.studentGender}</span>
+                                    </div>
+                                    <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-850 text-left">
+                                      <span className="text-slate-500 block text-[8px] uppercase font-bold">Subject</span>
+                                      <span className="text-white font-bold truncate block">{job.subject}</span>
+                                    </div>
+                                    <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-850 text-left">
+                                      <span className="text-slate-500 block text-[8px] uppercase font-bold">Duration</span>
+                                      <span className="text-white font-bold truncate block">{job.duration}</span>
+                                    </div>
+                                    <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-850 text-left col-span-2">
+                                      <span className="text-slate-500 block text-[8px] uppercase font-bold">Time Preference</span>
+                                      <span className="text-white font-bold truncate block">{job.parent?.profile?.preferableTime || job.preferableTime || "Flexible"}</span>
+                                    </div>
+                                    <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-850 text-left col-span-2">
+                                      <span className="text-slate-500 block text-[8px] uppercase font-bold">📍 Approx Location</span>
+                                      <span className="text-white font-bold truncate block">
+                                        {(job.approxLatitude || job.latitude) ? <AreaName lat={job.approxLatitude || job.latitude} lng={job.approxLongitude || job.longitude} /> : "Not provided"}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  <div className="bg-slate-900/40 p-3 rounded-xl border border-slate-850 text-[10px] text-amber-400 font-mono text-center">
+                                    ⚠️ To know full details, please contact TutorHire.
+                                  </div>
+
+                                  <button
+                                    onClick={() => setRequestModalJob(job)}
+                                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-2.5 px-4 rounded-xl text-xs font-sans transition duration-200 cursor-pointer border-none flex items-center justify-center"
+                                  >
+                                    Accept Request
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
                   </>
                   );
                   })()}
 
 
+                  </div> {/* End of listings tab for Tutor */}
+                  {/* PROGRESS UPDATES PORTAL FOR TUTORS */}
+                  <div className={`space-y-8 ${activeTab === 'progress' ? 'block' : 'hidden'}`}>
+                    {(() => {
+                      const activeAssignments = (tutorJobs || []).filter((job: any) => job.status !== "REQUESTED");
+                      return (
+                        <>
+                        {/* ASSIGNED TUITION JOBS PROGRESS */}
+                        <div className="mt-8 border-t border-slate-800/80 pt-8 space-y-6">
+                          <div>
+                            <h2 className="text-xl font-bold font-heading text-white">Tuition Progress Updates</h2>
+                            <p className="text-xs text-slate-500 mt-1 font-mono uppercase tracking-wider">Track student progress for your active assignments</p>
+                          </div>
+                          <div className="h-px bg-slate-800/80" />
+
+                          {(!activeAssignments || activeAssignments.length === 0) ? (
+                            <div className="bg-slate-900/40 border border-slate-850 rounded-2xl p-6 text-center space-y-2">
+                              <p className="text-xs text-slate-500 font-mono italic">No active tuition job assignments found.</p>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {activeAssignments.map((job: any) => (
+                                (job.status === "ASSIGNED" || job.status === "CONFIRMED") && job.commissionPaid ? (
+                                  <div key={job.id} className="bg-slate-950/60 border border-slate-850 p-4.5 rounded-2xl space-y-3 relative overflow-hidden group hover:border-emerald-500/30 transition-all duration-300">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-[10px] font-mono px-2 py-0.5 rounded border bg-purple-500/10 text-purple-400 border-purple-500/20 font-extrabold">
+                                        Active Assignment
+                                      </span>
+                                    </div>
+                                    <div className="space-y-1 mb-2">
+                                      <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider block font-bold">Tuition Title</span>
+                                      <div className="flex items-center gap-1.5 mt-0.5">
+                                        <span className="text-[9px] font-mono font-extrabold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-1.5 py-0.5 rounded shrink-0">
+                                          TCT-{String(job.jobSeq && job.jobSeq > 0 ? job.jobSeq : 1).padStart(3, '0')}
+                                        </span>
+                                        <span className="text-xs text-slate-200 font-bold block text-left truncate">{job.title}</span>
+                                      </div>
+                                    </div>
+                                    <div className="border-t border-slate-800/60 pt-3 mt-2">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider font-bold">📊 Student Progress</span>
+                                      </div>
+                                      <ProgressTracker role="TUTOR" jobId={job.id} jobTitle={job.title} jobSubject={job.subject} />
+                                    </div>
+                                  </div>
+                                ) : null
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+
                   {/* DYNAMIC EDUCATOR RATING SYSTEM PANEL */}
+                  <div className={`space-y-6 ${activeTab === 'ratings' ? 'block' : 'hidden'}`}>
                   {hasConfirmedTuition && (
-                    <div className="mt-8 border-t border-slate-800/80 pt-8 space-y-6">
+                    <div className="mt-8 space-y-6">
                       <div>
                         <h2 className="text-xl font-bold font-heading text-white">Educator Performance & Ratings</h2>
                         <p className="text-xs text-slate-500 mt-1 font-mono uppercase tracking-wider">Telemetry from verified parent reviews</p>
@@ -1414,10 +1544,12 @@ export default function Dashboard() {
                       </div>
                     </div>
                   )}
+                  </div> {/* End of ratings tab for Tutor */}
                 </>
               ) : (
                 // PARENT INTERFACE
                 <>
+                  <div className={activeTab === 'listings' ? 'block' : 'hidden'}>
                   <div>
                     <h2 className="text-xl font-bold font-heading text-white">Post a Tuition</h2>
                     <p className="text-xs text-slate-500 mt-1 font-mono uppercase tracking-wider">Create a new tuition listing to find a tutor</p>
@@ -1429,6 +1561,7 @@ export default function Dashboard() {
                       e.preventDefault();
                       const formEl = e.currentTarget;
                       setIsSubmittingJob(true);
+
                       const formData = new FormData(formEl);
                       const data = {
                         title: formData.get("title"),
@@ -1437,24 +1570,26 @@ export default function Dashboard() {
                         salary: formData.get("salary"),
                         tutorRequirement: formData.get("tutorRequirement"),
                         description: formData.get("description"),
-                        latitude: 23.8103,
-                        longitude: 90.4125,
+                        duration: formData.get("duration"),
+                        studentGender: formData.get("studentGender"),
+                        latitude: actualLatitude || latitude,
+                        longitude: actualLongitude || longitude,
                       };
 
-                      const res = await fetch("/api/jobs", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(data),
-                      });
-
-                      setIsSubmittingJob(false);
-                      if (res.ok) {
+                      try {
+                        const parentId = (session?.user as any)?.id;
+                        await fetchApi(`/jobs?parentId=${parentId}`, {
+                          method: "POST",
+                          body: JSON.stringify(data),
+                        });
+                        setIsSubmittingJob(false);
                         alert("✓ Tuition job posted successfully!");
                         formEl.reset();
                         // Refresh my listings
-                        const r = await fetch("/api/jobs?mine=true");
-                        if (r.ok) setMyJobs(await r.json());
-                      } else {
+                        const jobs = await fetchApi(`/jobs?parentId=${parentId}`);
+                        setMyJobs(Array.isArray(jobs) ? jobs : []);
+                      } catch (err) {
+                        setIsSubmittingJob(false);
                         alert("Failed to post tuition job.");
                       }
                     }}
@@ -1526,6 +1661,31 @@ export default function Dashboard() {
                       </div>
                     </div>
 
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="block text-[10px] font-mono uppercase tracking-wider text-slate-400 font-semibold">Duration (Days/Week)</label>
+                        <input
+                          type="text"
+                          name="duration"
+                          required
+                          placeholder="e.g. 3 Days/Week"
+                          className="w-full bg-slate-950 border border-slate-800 text-slate-100 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition duration-200"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="block text-[10px] font-mono uppercase tracking-wider text-slate-400 font-semibold">Student Gender</label>
+                        <select
+                          name="studentGender"
+                          required
+                          className="w-full bg-slate-950 border border-slate-800 text-slate-100 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition duration-200 cursor-pointer"
+                        >
+                          <option value="Any">Any</option>
+                          <option value="Male">Male</option>
+                          <option value="Female">Female</option>
+                        </select>
+                      </div>
+                    </div>
+
                     <div className="space-y-1">
                       <label className="block text-[10px] font-mono uppercase tracking-wider text-slate-400 font-semibold">Tutor Varsity/Dept Requirement</label>
                       <input
@@ -1547,11 +1707,23 @@ export default function Dashboard() {
                       />
                     </div>
 
-                    <div className="text-[10px] text-yellow-500 font-mono flex items-center bg-yellow-500/5 border border-yellow-500/10 p-2.5 rounded-xl">
-                      <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                      </svg>
-                      GPS location coordinates will mock to central Bangladesh area for mapping simulation.
+                    <div className="space-y-2 bg-slate-950/40 p-4 border border-slate-800 rounded-2xl">
+                      <label className="block text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold">
+                        Tuition Location Map
+                      </label>
+                      <MapPicker
+                        initialLat={latitude}
+                        initialLng={longitude}
+                        onChange={({ lat, lng, actualLat, actualLng }) => {
+                          setLatitude(lat);
+                          setLongitude(lng);
+                          setActualLatitude(actualLat || null);
+                          setActualLongitude(actualLng || null);
+                        }}
+                      />
+                      <p className="text-[10px] text-slate-500 font-mono mt-2">
+                        Drag the marker to pinpoint the exact tuition location. We will slightly approximate the public coordinates to protect your privacy.
+                      </p>
                     </div>
 
                     <button
@@ -1578,13 +1750,13 @@ export default function Dashboard() {
                     </div>
                     <div className="h-px bg-slate-800/80" />
 
-                    {myJobs.length === 0 ? (
+                    {myJobs.filter((job: any) => job.status !== "CONFIRMED").length === 0 ? (
                       <div className="text-center py-8 text-slate-500 text-sm font-mono">
-                        No listings yet. Post your first tuition above!
+                        No active open listings yet. Post your first tuition above!
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {myJobs.map((job: any) => (
+                        {myJobs.filter((job: any) => job.status !== "CONFIRMED").map((job: any) => (
                           <div key={job.id} className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-3 hover:border-emerald-500/30 transition-all duration-300">
                             <div className="flex items-start justify-between gap-2">
                               <div className="space-y-0.5">
@@ -1592,11 +1764,16 @@ export default function Dashboard() {
                                 <p className="text-[10px] font-mono text-slate-500 uppercase tracking-wider">{job.classLevel} · {job.subject}</p>
                               </div>
                               <span className={`shrink-0 text-[9px] font-mono px-2 py-0.5 rounded border font-extrabold uppercase ${
-                                job.status === "OPEN" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
-                                job.status === "ASSIGNED" ? "bg-blue-500/10 text-blue-400 border-blue-500/20" :
-                                job.status === "PENDING" ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
+                                (job.status || "PENDING") === "OPEN" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                                (job.status || "PENDING") === "ASSIGNED" ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20" :
+                                (job.status || "PENDING") === "PAYMENT_PENDING" ? "bg-purple-500/10 text-purple-400 border-purple-500/20" :
+                                (job.status || "PENDING") === "PENDING" ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
                                 "bg-slate-500/10 text-slate-400 border-slate-500/20"
-                              }`}>{job.status === "PENDING" ? "PENDING REVIEW" : job.status}</span>
+                              }`}>
+                                {(job.status || "PENDING") === "PENDING" ? "PENDING VERIFICATION" : 
+                                 (job.status || "PENDING") === "PAYMENT_PENDING" ? "FINALIZING" : 
+                                 (job.status || "PENDING")}
+                              </span>
                             </div>
 
                             <div className="flex items-center justify-between pt-2 border-t border-slate-800/60">
@@ -1605,10 +1782,10 @@ export default function Dashboard() {
                                 type="button"
                                 onClick={async () => {
                                   if (!confirm("Delete this listing? This cannot be undone.")) return;
-                                  const res = await fetch(`/api/jobs?jobId=${job.id}`, { method: "DELETE" });
-                                  if (res.ok) {
+                                  try {
+                                    await fetchApi(`/jobs/${job.id}`, { method: "DELETE" });
                                     setMyJobs(prev => prev.filter((j: any) => j.id !== job.id));
-                                  } else {
+                                  } catch (err) {
                                     alert("Failed to delete listing.");
                                   }
                                 }}
@@ -1623,104 +1800,163 @@ export default function Dashboard() {
                     )}
                   </div>
 
-                  {/* ACTIVE ASSIGNED TUTORS LEDGER FOR PARENTS */}
-                  {assignedTutors.length > 0 && (
-                    <div className="mt-8 border-t border-slate-800/80 pt-8 space-y-6">
-                      <div>
-                        <h2 className="text-xl font-bold font-heading text-white">Matched Roster Tutors</h2>
-                        <p className="text-xs text-slate-500 mt-1 font-mono uppercase tracking-wider">Assigned educators for your active tuition listings</p>
+                  </div> {/* End of listings tab */}
+
+                  {/* PROGRESS UPDATES PORTAL FOR PARENTS */}
+                  <div className={`space-y-8 ${activeTab === 'progress' ? 'block' : 'hidden'}`}>
+                    {assignedTutors.filter((t: any) => t.commissionPaid).length === 0 ? (
+                      <div className="text-center py-12 space-y-3">
+                        <div className="text-4xl">📊</div>
+                        <p className="text-slate-500 text-sm font-mono">No active tuitions yet.</p>
                       </div>
-                      <div className="h-px bg-slate-800/80" />
+                    ) : (
+                      <div className="space-y-6">
+                        <div>
+                          <h2 className="text-xl font-bold font-heading text-white">Active Tuitions & Progress</h2>
+                          <p className="text-xs text-slate-500 mt-1 font-mono uppercase tracking-wider">Track your child's progress with assigned educators</p>
+                        </div>
+                        <div className="h-px bg-slate-800/80" />
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {assignedTutors.map((t: any) => (
-                          <div key={t.id + '-' + (t.jobId || '')} className="bg-slate-950/60 border border-slate-850 p-4.5 rounded-2xl space-y-3 relative overflow-hidden group hover:border-emerald-500/30 transition-all duration-300">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-mono px-2 py-0.5 rounded border bg-emerald-500/10 text-emerald-400 border-emerald-500/20 font-extrabold">
-                                TC-{String(t.tutorSeq).padStart(3, '0')}
-                              </span>
-                              <span className={`text-[9px] font-mono px-2 py-0.5 rounded-md uppercase font-extrabold tracking-wider border ${
-                                t.commissionPaid
-                                  ? "bg-emerald-500/5 text-emerald-400 border-emerald-500/10"
-                                  : "bg-amber-500/5 text-amber-400 border-amber-500/10"
-                              }`}>
-                                {t.commissionPaid ? "Full Details Unlocked" : "Pending Commission"}
-                              </span>
-                            </div>
+                        <div className="grid grid-cols-1 gap-6">
+                          {assignedTutors.filter((t: any) => t.commissionPaid).map((t: any) => (
+                            <div key={t.id + '-' + (t.jobId || '')} className="bg-slate-950/60 border border-slate-850 p-4.5 rounded-2xl space-y-3 relative overflow-hidden group hover:border-emerald-500/30 transition-all duration-300">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-mono px-2 py-0.5 rounded border bg-emerald-500/10 text-emerald-400 border-emerald-500/20 font-extrabold">
+                                  TC-{String(t.tutorSeq).padStart(3, '0')}
+                                </span>
+                                <span className={`text-[9px] font-mono px-2 py-0.5 rounded-md uppercase font-extrabold tracking-wider border ${
+                                  t.commissionPaid
+                                    ? "bg-emerald-500/5 text-emerald-400 border-emerald-500/10"
+                                    : "bg-amber-500/5 text-amber-400 border-amber-500/10"
+                                }`}>
+                                  {t.commissionPaid ? "Assignment Confirmed" : "Awaiting Confirmation"}
+                                </span>
+                              </div>
 
-                            <div className="space-y-1">
-                              <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider block font-bold">Matching Tuition Job</span>
-                              <span className="text-xs text-slate-200 font-bold block">{t.jobTitle}</span>
-                            </div>
+                              <div className="space-y-1">
+                                <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider block font-bold">Matching Tuition Job</span>
+                                <span className="text-xs text-slate-200 font-bold block">{t.jobTitle}</span>
+                              </div>
 
-                            {/* Always visible: Name */}
-                            <div className="space-y-1 pt-1.5 border-t border-slate-900">
-                              <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider block font-bold">Tutor Name</span>
-                              <p className="text-xs text-white leading-relaxed font-sans font-semibold">
-                                {t.name}
-                              </p>
-                            </div>
-
-                            {/* Always visible: Education */}
-                            <div className="space-y-1 pt-1.5 border-t border-slate-900">
-                              <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider block font-bold">University / Education</span>
-                              <p className="text-xs text-emerald-300 leading-relaxed font-sans font-semibold">
-                                {t.education}
-                              </p>
-                            </div>
-
-                            <div className="space-y-1 pt-1.5 border-t border-slate-900">
-                              <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider block font-bold">Subjects</span>
-                              <p className="text-xs text-emerald-400 leading-relaxed font-sans font-semibold">
-                                {t.subject}
-                              </p>
-                            </div>
-
-                            <div className="space-y-1 pt-1.5 border-t border-slate-900">
-                              <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider block font-bold">Tutor Bio</span>
-                              <p className="text-xs text-slate-300 leading-relaxed font-sans italic">
-                                &quot;{t.bio}&quot;
-                              </p>
-                            </div>
-
-                            {/* Contact details — only after commission */}
-                            {t.commissionPaid ? (
+                              {/* Always visible: Name */}
                               <div className="space-y-1 pt-1.5 border-t border-slate-900">
-                                <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider block font-bold">Contact Details</span>
-                                <div className="bg-slate-900/40 p-2.5 rounded-xl text-xs space-y-1 text-slate-300 font-sans text-left">
-                                  <p><span className="text-slate-500 font-mono text-[10px]">Phone:</span> {t.phone}</p>
-                                  <p><span className="text-slate-500 font-mono text-[10px]">Email:</span> {t.email}</p>
-                                  <p className="text-[9px] text-emerald-400 font-mono mt-1 flex items-center gap-1">
-                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                                    </svg>
-                                    Commission paid — Full contact unlocked
-                                  </p>
-                                </div>
+                                <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider block font-bold">Tutor Name</span>
+                                <p className="text-xs text-white leading-relaxed font-sans font-semibold">
+                                  {t.name}
+                                </p>
                               </div>
-                            ) : (
-                              <div className="bg-amber-500/5 border border-amber-500/10 p-2.5 rounded-xl text-[10px] font-mono text-amber-500 leading-normal text-center">
-                                📞 Phone & email will be visible once the tutor pays the ৳{t.commissionAmount || '—'} platform commission fee.
-                              </div>
-                            )}
 
-                            {/* Student Progress Tracker for Parent */}
-                            {t.commissionPaid && t.jobId && (
-                              <div className="border-t border-slate-800/60 pt-3 mt-2">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider font-bold">📊 Student Progress</span>
-                                </div>
-                                <ProgressTracker role="PARENT" jobId={t.jobId} jobTitle={t.jobTitle} jobSubject={t.subject} />
+                              {/* Always visible: Education */}
+                              <div className="space-y-1 pt-1.5 border-t border-slate-900">
+                                <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider block font-bold">University / Education</span>
+                                <p className="text-xs text-emerald-300 leading-relaxed font-sans font-semibold">
+                                  {t.education}
+                                </p>
                               </div>
-                            )}
-                          </div>
-                        ))}
+
+                              <div className="space-y-1 pt-1.5 border-t border-slate-900">
+                                <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider block font-bold">Subjects</span>
+                                <p className="text-xs text-emerald-400 leading-relaxed font-sans font-semibold">
+                                  {t.subject}
+                                </p>
+                              </div>
+
+                              <div className="space-y-1 pt-1.5 border-t border-slate-900">
+                                <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider block font-bold">Tutor Bio</span>
+                                <p className="text-xs text-slate-300 leading-relaxed font-sans italic">
+                                  &quot;{t.bio}&quot;
+                                </p>
+                              </div>
+
+                              {/* Contact details — only after commission */}
+                              {t.commissionPaid ? (
+                                <div className="space-y-1 pt-1.5 border-t border-slate-900">
+                                  <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider block font-bold">Contact Details</span>
+                                  <div className="bg-slate-900/40 p-2.5 rounded-xl text-xs space-y-1 text-slate-300 font-sans text-left">
+                                    <p><span className="text-slate-500 font-mono text-[10px]">Phone:</span> {t.profile?.phone || t.phone}</p>
+                                    <p><span className="text-slate-500 font-mono text-[10px]">Email:</span> {t.email}</p>
+                                    <p className="text-[9px] text-emerald-400 font-mono mt-1 flex items-center gap-1">
+                                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                      </svg>
+                                      Assignment confirmed — Full contact unlocked
+                                    </p>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="bg-amber-500/5 border border-amber-500/10 p-2.5 rounded-xl text-[10px] font-mono text-amber-500 leading-normal text-center">
+                                  📞 Phone & email will be visible once the tutor assignment is finalized by the administration.
+                                </div>
+                              )}
+
+                              {/* Student Progress Tracker for Parent */}
+                              {t.commissionPaid && t.jobId && (
+                                <div className="border-t border-slate-800/60 pt-3 mt-2">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider font-bold">📊 Student Progress</span>
+                                  </div>
+                                  {t.progressUnlocked ? (
+                                    <ProgressTracker role="PARENT" jobId={t.jobId} jobTitle={t.jobTitle} jobSubject={t.subject} guardianId={(session?.user as any)?.id} />
+                                  ) : (
+                                    <div className="bg-slate-900/40 p-4 rounded-2xl border border-slate-800 space-y-4">
+                                      <div className="flex items-center justify-between">
+                                        <div className="space-y-1">
+                                          <h4 className="text-pink-400 font-bold font-heading text-sm">Progress Tracking Subscription</h4>
+                                          <p className="text-[10px] text-slate-400 font-mono">Unlock unlimited progress updates, homework tracking, and performance summaries directly from the tutor.</p>
+                                        </div>
+                                        <span className="bg-pink-500/10 text-pink-500 border border-pink-500/20 px-3 py-1 rounded-lg font-mono font-extrabold text-[10px] tracking-widest uppercase shrink-0 text-center">
+                                          500 BDT
+                                        </span>
+                                      </div>
+                                      
+                                      {t.progressFeePending ? (
+                                        <div className="bg-amber-500/5 p-4 rounded-xl border border-amber-500/10 text-center space-y-2">
+                                          <div className="text-xl">⏳</div>
+                                          <p className="text-[10px] text-amber-500 font-mono font-bold uppercase tracking-wider">Payment Review in Progress</p>
+                                          <p className="text-[10px] text-amber-500/80 font-sans">Your subscription payment is currently being verified by our administration team. The progress console will automatically unlock upon successful verification.</p>
+                                        </div>
+                                      ) : (
+                                        <div className="bg-pink-500/5 p-3 rounded-xl border border-pink-500/10 space-y-3">
+                                          <p className="text-[10px] text-slate-300 font-sans leading-relaxed">
+                                          Please send <strong className="text-pink-400">500 BDT</strong> via bKash to our Merchant Account <strong className="text-pink-400 font-mono tracking-wider bg-pink-500/10 px-1 py-0.5 rounded">01811223344</strong> (Payment). Submit your Transaction ID below to verify.
+                                        </p>
+                                        
+                                        <div className="flex items-center gap-2">
+                                          <div className="relative flex-1">
+                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                              <span className="text-slate-500 text-xs font-mono font-bold uppercase">TrxID</span>
+                                            </div>
+                                            <input
+                                              type="text"
+                                              value={progressTrxId}
+                                              onChange={(e) => setProgressTrxId(e.target.value)}
+                                              placeholder="e.g. 8N3MK9XYZ"
+                                              className="w-full bg-slate-950/80 border border-pink-500/30 text-slate-100 rounded-xl pl-14 pr-3 py-2 text-xs focus:outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500 transition font-mono uppercase"
+                                            />
+                                          </div>
+                                          <button
+                                            onClick={() => handlePayProgress(t.jobId)}
+                                            disabled={payingProgressJobId === t.jobId}
+                                            className="shrink-0 bg-pink-500 hover:bg-pink-600 text-white font-bold py-2 px-4 rounded-xl text-xs transition duration-200 cursor-pointer border-none flex items-center justify-center disabled:opacity-50 font-mono tracking-wider shadow-[0_0_10px_rgba(236,72,153,0.3)]"
+                                          >
+                                            {payingProgressJobId === t.jobId ? "Processing..." : `Submit`}
+                                          </button>
+                                        </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
 
                   {/* SUBMIT REVIEW SECTION FOR PARENTS */}
-                  <div className="mt-8 border-t border-slate-800/80 pt-8 space-y-6">
+                  <div className={`mt-8 space-y-6 ${activeTab === 'ratings' ? 'block' : 'hidden'}`}>
                     <div>
                       <h2 className="text-xl font-bold font-heading text-white">Rate System Educators</h2>
                       <p className="text-xs text-slate-500 mt-1 font-mono uppercase tracking-wider">Leave ratings feedback for active tutors</p>
@@ -1740,17 +1976,16 @@ export default function Dashboard() {
                             comment: formData.get("comment"),
                           };
 
-                          const res = await fetch("/api/reviews", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify(data),
-                          });
-
-                          setIsSubmittingReview(false);
-                          if (res.ok) {
+                          try {
+                            await fetchApi("/reviews", {
+                              method: "POST",
+                              body: JSON.stringify(data),
+                            });
+                            setIsSubmittingReview(false);
                             alert("✓ Review feedback submitted successfully!");
                             formEl.reset();
-                          } else {
+                          } catch (err) {
+                            setIsSubmittingReview(false);
                             alert("Failed to post review.");
                           }
                         }}
@@ -1828,6 +2063,166 @@ export default function Dashboard() {
                   </div>
                 </>
               )}
+            </div>
+            
+            {/* Payment Ledger Tab (Global) */}
+            <div className={`w-full max-w-4xl mx-auto space-y-8 ${activeTab === 'payment' ? 'block' : 'hidden'}`}>
+              {/* Pending Commission Payments */}
+              {role === "TUTOR" && (() => {
+                const pendingPaymentJobs = (tutorJobs || []).filter((j: any) => j.status === "ACCEPTED" && !j.commissionPaid);
+                return pendingPaymentJobs.length > 0 ? (
+                  <div className="glass-card rounded-2xl p-6 border border-slate-800 space-y-6">
+                    <div>
+                      <h2 className="text-xl font-bold font-heading text-white">💳 Pending Commission Payments</h2>
+                      <p className="text-xs text-slate-500 mt-1 font-mono uppercase tracking-wider">Pay via bKash/Nagad to unlock parent contact details</p>
+                    </div>
+                    <div className="h-px bg-slate-800/80" />
+
+                    <div className="space-y-4">
+                      {pendingPaymentJobs.map((job: any) => {
+                        const commission = job.commissionAmount || Math.ceil(job.salary * 0.10);
+                        const isSelected = selectedPaymentJobId === job.id;
+                        return (
+                          <div key={job.id} className={`bg-slate-950/60 border rounded-2xl p-5 space-y-4 transition-all duration-300 ${
+                            isSelected ? 'border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.08)]' : 'border-slate-800/80 hover:border-slate-700'
+                          }`}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <span className="text-[10px] font-mono px-2 py-0.5 rounded border bg-cyan-500/10 text-cyan-400 border-cyan-500/20 font-extrabold">
+                                  TCT-{String(job.jobSeq > 0 ? job.jobSeq : 1).padStart(3, '0')}
+                                </span>
+                                <span className="text-sm font-bold text-white">{job.title}</span>
+                              </div>
+                              <span className="text-[9px] font-mono px-2 py-0.5 rounded-md uppercase font-extrabold tracking-wider border bg-amber-500/10 text-amber-400 border-amber-500/20">
+                                Commission Pending
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-3 text-[10px] font-mono">
+                              <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-850">
+                                <span className="text-slate-500 block text-[8px] uppercase font-bold">Subject</span>
+                                <span className="text-white font-bold">{job.subject}</span>
+                              </div>
+                              <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-850">
+                                <span className="text-slate-500 block text-[8px] uppercase font-bold">Salary</span>
+                                <span className="text-white font-bold">৳{job.salary}</span>
+                              </div>
+                              <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-850">
+                                <span className="text-slate-500 block text-[8px] uppercase font-bold">Commission (10%)</span>
+                                <span className="text-emerald-400 font-extrabold">৳{commission}</span>
+                              </div>
+                            </div>
+
+                            {!isSelected ? (
+                              <button
+                                onClick={() => setSelectedPaymentJobId(job.id)}
+                                className="w-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 font-bold py-2.5 px-4 rounded-xl text-xs transition duration-200 cursor-pointer flex items-center justify-center gap-2"
+                              >
+                                💳 Pay ৳{commission} Commission
+                              </button>
+                            ) : (
+                              <div className="space-y-3 bg-slate-900/40 p-4 rounded-xl border border-slate-800">
+                                <div className="bg-amber-500/5 border border-amber-500/10 p-3 rounded-xl text-[11px] font-sans text-amber-400 leading-relaxed text-center">
+                                  Send <strong>৳{commission}</strong> to <strong className="text-emerald-400">01XXXXXXXXX</strong> via bKash/Nagad, then enter your details below.
+                                </div>
+                                <div className="space-y-2">
+                                  <label className="text-[9px] font-mono text-slate-500 uppercase tracking-wider block font-bold">Your bKash/Nagad Number</label>
+                                  <input
+                                    type="text"
+                                    value={bkashNumber}
+                                    onChange={(e) => setBkashNumber(e.target.value)}
+                                    placeholder="01XXXXXXXXX"
+                                    className="w-full bg-slate-950 border border-slate-800 text-slate-100 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition font-mono"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <label className="text-[9px] font-mono text-slate-500 uppercase tracking-wider block font-bold">Transaction ID (TrxID)</label>
+                                  <input
+                                    type="text"
+                                    value={commissionTrxId}
+                                    onChange={(e) => setCommissionTrxId(e.target.value)}
+                                    placeholder="e.g. BK24A7X9Z3"
+                                    className="w-full bg-slate-950 border border-slate-800 text-slate-100 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition font-mono"
+                                  />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3 pt-1">
+                                  <button
+                                    onClick={() => { setSelectedPaymentJobId(null); setBkashNumber(''); setCommissionTrxId(''); }}
+                                    className="bg-slate-950/60 hover:bg-slate-950 border border-slate-850 text-slate-400 py-2.5 rounded-xl transition duration-200 cursor-pointer text-[10px] font-mono uppercase tracking-wider"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    onClick={() => handlePayCommission(job.id)}
+                                    disabled={payingCommissionJobId === job.id || !bkashNumber.trim() || !commissionTrxId.trim()}
+                                    className="bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-bold py-2.5 rounded-xl text-xs transition duration-200 cursor-pointer border-none flex items-center justify-center"
+                                  >
+                                    {payingCommissionJobId === job.id ? "Processing..." : "Submit Payment"}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null;
+              })()}
+
+              {/* Payment History */}
+              <div className="glass-card rounded-2xl p-6 border border-slate-800 space-y-6">
+                <div>
+                  <h2 className="text-xl font-bold font-heading text-white">📜 Payment History</h2>
+                  <p className="text-xs text-slate-500 mt-1 font-mono uppercase tracking-wider">Transaction history and past commissions</p>
+                </div>
+                <div className="h-px bg-slate-800/80" />
+                
+                {(() => {
+                  const paidJobs = (tutorJobs || []).filter((j: any) => j.commissionPaid);
+                  const hasHistory = (paymentHistory && paymentHistory.length > 0) || paidJobs.length > 0;
+                  if (!hasHistory) return (
+                    <div className="bg-slate-900/40 border border-slate-850 rounded-2xl p-6 text-center">
+                      <p className="text-xs text-slate-500 font-mono italic">No payment transactions recorded yet.</p>
+                    </div>
+                  );
+                  return (
+                    <div className="space-y-3">
+                      {paidJobs.map((job: any) => (
+                        <div key={job.id} className="bg-slate-950/60 border border-slate-800/80 p-4 rounded-xl flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-bold text-white">TCT-{String(job.jobSeq > 0 ? job.jobSeq : 1).padStart(3, '0')} — {job.title}</p>
+                            <p className="text-xs text-slate-400 font-mono">Commission: ৳{job.commissionAmount || Math.ceil(job.salary * 0.10)}</p>
+                          </div>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded border font-extrabold uppercase bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                            ✓ Paid
+                          </span>
+                        </div>
+                      ))}
+                      {(paymentHistory || []).map((payment: any) => (
+                        <div key={payment.id} className="bg-slate-950/60 border border-slate-800/80 p-4 rounded-xl flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-bold text-white">TrxID: {payment.transactionId}</p>
+                            <p className="text-xs text-slate-400 font-mono">Amount: ৳{payment.amount}</p>
+                          </div>
+                          <div className="text-right">
+                            <span className={`text-[10px] font-mono px-2 py-0.5 rounded border font-extrabold uppercase ${
+                              payment.status === 'VERIFIED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 
+                              payment.status === 'REJECTED' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 
+                              'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+                            }`}>
+                              {payment.status}
+                            </span>
+                            <p className="text-[9px] text-slate-500 font-mono mt-1">
+                              {new Date(payment.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
           </div>
         </div>

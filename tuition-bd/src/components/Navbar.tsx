@@ -40,6 +40,13 @@ export default function Navbar({ selectedRole }: NavbarProps = {}) {
     return pathname === href;
   };
 
+  const getDashboardUrl = () => {
+    if ((session?.user as any)?.role === "ADMIN") return "/admin";
+    if ((session?.user as any)?.role === "TUTOR") return "/tutor";
+    if ((session?.user as any)?.role === "PARENT") return "/parent";
+    return "/dashboard";
+  };
+
   useEffect(() => {
     setMounted(true);
     const isLightActive = document.documentElement.classList.contains("light");
@@ -73,21 +80,22 @@ export default function Navbar({ selectedRole }: NavbarProps = {}) {
         <div className="flex justify-between h-16">
           {/* Logo / Brand */}
           <div className="flex items-center">
-            {pathname !== "/" && (
-              <motion.button
-                whileHover={{ scale: 1.05, x: -2 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => router.push("/")}
-                className="mr-2 sm:mr-3 p-1.5 sm:p-2 rounded-xl border border-slate-800/60 bg-slate-900/60 hover:border-emerald-500/40 text-slate-400 hover:text-white transition-all cursor-pointer flex items-center justify-center group shrink-0"
-                title="Go to Homepage"
-              >
-                <svg className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-emerald-400 group-hover:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                </svg>
-              </motion.button>
-            )}
+            <div className="relative flex items-center">
+              {pathname !== "/" && (
+                <motion.button
+                  whileHover={{ scale: 1.05, x: -2 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => router.push("/")}
+                  className="absolute right-[100%] mr-1 sm:mr-2 p-1.5 sm:p-2 rounded-xl border border-slate-800/60 bg-slate-900/60 hover:border-emerald-500/40 text-slate-400 hover:text-white transition-all cursor-pointer flex items-center justify-center group shrink-0"
+                  title="Go to Homepage"
+                >
+                  <svg className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-emerald-400 group-hover:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </motion.button>
+              )}
             
-            <Link href="/" className="flex items-center space-x-2 sm:space-x-3">
+              <Link href="/" className="flex items-center space-x-2 sm:space-x-3">
               <motion.div
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -99,8 +107,7 @@ export default function Navbar({ selectedRole }: NavbarProps = {}) {
                 </div>
               </motion.div>
             </Link>
-
-
+            </div>
 
             {/* Main Navigation Links (Desktop) */}
             <div className="hidden sm:ml-10 sm:flex sm:space-x-8">
@@ -200,9 +207,9 @@ export default function Navbar({ selectedRole }: NavbarProps = {}) {
             {session ? (
               <div className="hidden sm:flex items-center space-x-4">
                 <Link
-                  href="/dashboard"
+                  href={getDashboardUrl()}
                   className={`text-xs font-mono uppercase tracking-wider font-extrabold px-4 py-2 rounded-xl border transition-all duration-200 ${
-                    isLinkActive("/dashboard")
+                    isLinkActive(getDashboardUrl())
                       ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/30 shadow-[0_0_15px_rgba(var(--theme-rgb),0.15)]"
                       : "text-slate-400 hover:text-slate-200 bg-slate-900/30 border-slate-800/80 hover:border-slate-700"
                   }`}
@@ -343,9 +350,9 @@ export default function Navbar({ selectedRole }: NavbarProps = {}) {
               {session ? (
                 <div className="space-y-3 pt-2">
                   <Link
-                    href="/dashboard"
+                    href={getDashboardUrl()}
                     className={`w-full px-4 py-3 rounded-xl text-xs font-mono uppercase tracking-wider font-extrabold transition-all duration-200 flex items-center ${
-                      isLinkActive("/dashboard")
+                      isLinkActive(getDashboardUrl())
                         ? "text-emerald-400 bg-emerald-500/10"
                         : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/40"
                     }`}
